@@ -24,6 +24,8 @@ const CHIP_BY_RULE: Record<string, ChipId> = {
   jetbrains: "ide",
   "user-logs": "logs",
   "gradle-daemon": "logs",
+  journal: "logs",
+  "win-crash-dumps": "logs",
 };
 
 /** Which chip a cleaner rule belongs to. */
@@ -64,6 +66,11 @@ const TOOL_BY_RULE: Record<string, string> = {
   jetbrains: "jetbrains",
   docker: "docker",
   "ios-backups": "apple",
+  nuget: "nuget",
+  "apt-cache": "debian",
+  journal: "linux",
+  flatpak: "flatpak",
+  snap: "snapcraft",
 };
 
 /** Simple Icons slug for a rule, or null for a generic icon. */

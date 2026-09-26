@@ -23,6 +23,7 @@ const GENERIC: Record<string, LucideIcon> = {
   "linux-cache": Box,
   "user-logs": ScrollText,
   "win-temp": Clock,
+  "win-crash-dumps": ScrollText,
   trash: Trash2,
 };
 
