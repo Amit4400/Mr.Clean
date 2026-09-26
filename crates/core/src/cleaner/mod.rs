@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use crate::env::{Env, Os};
 use crate::fsutil::{modified_secs, path_size, Cancel, Progress};
 use crate::safety::{remove_checked, DeleteMode, DeleteReport, Guard};
+use crate::simruntime;
 pub use rules::{Category, Rule, Safety, Target};
 
 #[derive(Debug, Clone, Serialize)]
@@ -166,6 +167,7 @@ pub fn scan(env: &Env, cancel: &Cancel, progress: &Progress) -> CleanerScan {
     let rules = rules::rules_for(env.os);
     let owned = all_targets(env, &rules);
     let xcode = (env.os == Os::Mac).then(|| xcode_installed(env));
+    let mounts = simruntime::mounts();
     let mut result = CleanerScan {
         rules: vec![],
         total_bytes: 0,
@@ -177,13 +179,18 @@ pub fn scan(env: &Env, cancel: &Cancel, progress: &Progress) -> CleanerScan {
         if cancel.is_cancelled() {
             break;
         }
+        let runtimes = rule.safety == Safety::NeedsPassword;
         let mut items: Vec<Item> = rule_items(env, rule, &owned)
             .into_iter()
+            .filter(|p| !runtimes || simruntime::is_runtime_item(p))
             .map(|p| Item {
-                name: p
-                    .file_name()
-                    .map(|n| n.to_string_lossy().to_string())
-                    .unwrap_or_default(),
+                name: if runtimes {
+                    simruntime::label(&p, &mounts)
+                } else {
+                    p.file_name()
+                        .map(|n| n.to_string_lossy().to_string())
+                        .unwrap_or_default()
+                },
                 bytes: path_size(&p, Some(cancel), Some(progress)),
                 modified: modified_secs(&p),
                 path: p.display().to_string(),
@@ -249,6 +256,11 @@ pub fn clean(env: &Env, requests: &[CleanRequest], mode: DeleteMode) -> DeleteRe
                 })
                 .collect(),
         };
+        if rule.safety == Safety::NeedsPassword {
+            let xcode = xcode_installed(env);
+            crate::safety::remove_simulator_runtimes(env, &chosen, xcode, &mut report);
+            continue;
+        }
         let roots = rule_roots(env, rule);
         let mode = if rule.always_permanent {
             DeleteMode::Permanent
@@ -363,6 +375,21 @@ mod tests {
         let caches = names("user-caches");
         assert!(caches.iter().any(|p| p.ends_with("Google/Chrome")), "{caches:?}");
         assert!(!caches.iter().any(|p| p.contains("AndroidStudio")));
+    }
+
+    #[test]
+    fn simulator_runtimes_are_counted_once() {
+        let (_d, env) = fake_mac();
+        let base = env.root.join("Library/Developer/CoreSimulator");
+        write(&base.join("Images/7D832126-03E7-45A9-86CF-E1E9A1B2C3D4.dmg"), 70_000);
+        write(&base.join("Images/images.plist"), 500);
+        // The mounted copy of that same image must not be added again.
+        write(&base.join("Volumes/iOS_21F79/Library/big"), 70_000);
+        let s = scan(&env, &Cancel::new(), &Progress::default());
+        let rt = s.rules.iter().find(|r| r.rule.id == "simulator-runtimes").unwrap();
+        assert_eq!(rt.items.len(), 1, "{:?}", rt.items);
+        assert!(rt.items[0].name.starts_with("Simulator runtime 7D832126"));
+        assert!(rt.total_bytes < 100_000);
     }
 
     #[test]

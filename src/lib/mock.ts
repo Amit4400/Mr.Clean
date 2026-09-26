@@ -37,6 +37,9 @@ const cleanerScan = () => {
       ["Library/Developer/CoreSimulator/Devices/91BD-iPhone 14", 11.8 * GB, 320],
       ["Library/Developer/CoreSimulator/Devices/C0FE-iPad Air", 9.1 * GB, 400],
     ], { command: "xcrun simctl delete unavailable" }),
+    rule("simulator-runtimes", "Simulator runtimes (iOS versions)", "xcode", "needs_password", "Downloaded iOS/watchOS runtimes, several GB each. They belong to macOS, so it asks for your password to remove them. Xcode downloads one again if you need it.", [
+      ["iOS 17.5 (21F79)", 7.2 * GB, 900],
+    ], { always_permanent: true }),
     rule("xcode-derived-data", "Xcode DerivedData", "xcode", "safe", "Build products and indexes. Xcode rebuilds them on the next build.", [
       ["Library/Developer/Xcode/DerivedData/ShopApp-abc", 3.4 * GB, 30],
       ["Library/Developer/Xcode/DerivedData/Wallet-def", 2.1 * GB, 90],

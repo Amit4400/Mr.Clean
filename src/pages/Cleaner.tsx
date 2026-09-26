@@ -14,6 +14,7 @@ const SAFETY: Record<Safety, { label: string; tone: Tone }> = {
   safe: { label: "Safe", tone: "safe" },
   review: { label: "Review", tone: "warn" },
   report_only: { label: "Info only", tone: "neutral" },
+  needs_password: { label: "Needs password", tone: "info" },
 };
 
 // Generic icons for rules that aren't one tool.
@@ -59,7 +60,7 @@ export default function Cleaner() {
   };
 
   const selected = useMemo(() => {
-    if (!cleaner) return { bytes: 0, count: 0, requests: [] as CleanRequest[], lines: [] as { name: string; bytes: number; permanent: boolean }[] };
+    if (!cleaner) return { bytes: 0, count: 0, requests: [] as CleanRequest[], lines: [] as { name: string; bytes: number; permanent: boolean }[], password: false };
     let total = 0;
     let count = 0;
     const requests: CleanRequest[] = [];
@@ -74,7 +75,8 @@ export default function Cleaner() {
       requests.push({ rule_id: r.rule.id, paths: items.map((i) => i.path) });
       lines.push({ name: r.rule.name, bytes: b, permanent: r.rule.always_permanent });
     }
-    return { bytes: total, count, requests, lines };
+    const password = cleaner.rules.some((r) => r.rule.safety === "needs_password" && (sel[r.rule.id]?.size ?? 0) > 0);
+    return { bytes: total, count, requests, lines, password };
   }, [cleaner, sel]);
 
   const clean = async () => {
@@ -271,6 +273,11 @@ export default function Cleaner() {
             </li>
           ))}
         </ul>
+        {selected.password && (
+          <p className="mt-3 rounded-[10px] bg-info-soft px-3 py-2 text-[12px] text-info-text">
+            Simulator runtimes belong to macOS, so it will ask for your Mac password to remove them. They're deleted permanently.
+          </p>
+        )}
         <p className="mt-4 text-xs text-faint">Quit Xcode, Android Studio and your editors first for the best result.</p>
       </Modal>
     </Page>

@@ -52,7 +52,7 @@ export interface SystemInfo {
 }
 
 export type Category = "xcode" | "android" | "java_script" | "languages" | "tools" | "system";
-export type Safety = "safe" | "review" | "report_only";
+export type Safety = "safe" | "review" | "report_only" | "needs_password";
 
 export interface RuleInfo {
   id: string;

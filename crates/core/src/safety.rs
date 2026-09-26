@@ -163,6 +163,32 @@ impl<'a> Guard<'a> {
         Ok(p)
     }
 
+    /// For Xcode simulator runtimes, which are root-owned: only a `<UUID>.dmg`
+    /// file directly in CoreSimulator's Images folder, or a `*.simruntime`
+    /// folder directly in its Profiles/Runtimes folder. Never a symlink.
+    pub fn check_simulator_runtime(&self, path: &Path) -> Result<PathBuf, SafetyError> {
+        use crate::simruntime::{is_runtime_bundle_name, is_runtime_image_name, BUNDLES, IMAGES};
+        let p = Self::resolve(path)?;
+        let meta = std::fs::symlink_metadata(&p).map_err(|_| SafetyError::Missing)?;
+        if meta.file_type().is_symlink() {
+            return Err(SafetyError::Protected("a link, not a runtime".into()));
+        }
+        let root = Self::canon(&self.env.root);
+        let dir = |rel: &str| Self::canon(&root.join(rel.trim_start_matches('/')));
+        let name = p
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let parent = p.parent().ok_or(SafetyError::OutsideAllowedRoots)?;
+        let ok = (parent == dir(IMAGES) && meta.is_file() && is_runtime_image_name(&name))
+            || (parent == dir(BUNDLES) && meta.is_dir() && is_runtime_bundle_name(&name));
+        if ok {
+            Ok(p)
+        } else {
+            Err(SafetyError::OutsideAllowedRoots)
+        }
+    }
+
     /// For files the user picked by hand in the large-file explorer.
     pub fn check_user_file(&self, path: &Path) -> Result<PathBuf, SafetyError> {
         let p = Self::resolve(path)?;
@@ -262,6 +288,114 @@ pub fn remove_checked(path: &Path, mode: DeleteMode, report: &mut DeleteReport) 
             });
         }
         Err(e) => report.fail(path, e),
+    }
+}
+
+/// Quote for `/bin/sh` inside single quotes.
+fn sh_quote(s: &str) -> String {
+    format!("'{}'", s.replace('\'', r"'\''"))
+}
+
+/// The shell script run with admin rights to remove runtimes: detach each
+/// mounted image, then delete it. Built only from guard-checked paths.
+pub fn runtime_removal_script(items: &[(PathBuf, Option<PathBuf>)]) -> String {
+    let mut parts = Vec::new();
+    for (path, mount) in items {
+        if let Some(m) = mount {
+            parts.push(format!(
+                "/usr/bin/hdiutil detach -force {} >/dev/null 2>&1",
+                sh_quote(&m.to_string_lossy())
+            ));
+        }
+        parts.push(format!("/bin/rm -rf {}", sh_quote(&path.to_string_lossy())));
+    }
+    parts.join("; ")
+}
+
+/// Wrap a shell script in AppleScript that asks macOS for the admin password.
+pub fn admin_applescript(script: &str) -> String {
+    let escaped = script.replace('\\', "\\\\").replace('"', "\\\"");
+    format!("do shell script \"{escaped}\" with administrator privileges")
+}
+
+/// Remove Xcode simulator runtimes. They belong to the system, so this uses
+/// `xcrun simctl runtime delete` when Xcode is installed, and otherwise one
+/// macOS password prompt. Every path passes `check_simulator_runtime` first.
+pub fn remove_simulator_runtimes(env: &Env, paths: &[PathBuf], xcode: bool, report: &mut DeleteReport) {
+    let guard = Guard::new(env);
+    let mut checked = Vec::new();
+    for p in paths {
+        match guard.check_simulator_runtime(p) {
+            Ok(c) => checked.push((c.clone(), crate::fsutil::path_size(&c, None, None))),
+            Err(e) => report.fail(p, e),
+        }
+    }
+    if checked.is_empty() {
+        return;
+    }
+    if !cfg!(target_os = "macos") {
+        for (p, _) in &checked {
+            report.fail(p, "simulator runtimes can only be removed on macOS");
+        }
+        return;
+    }
+    let mut left: Vec<(PathBuf, u64)> = Vec::new();
+    for (p, bytes) in checked {
+        let uuid = p
+            .file_name()
+            .and_then(|n| n.to_str())
+            .and_then(|n| n.strip_suffix(".dmg"))
+            .map(str::to_string);
+        let deleted = xcode
+            && uuid.is_some_and(|id| {
+                std::process::Command::new("/usr/bin/xcrun")
+                    .args(["simctl", "runtime", "delete", &id])
+                    .status()
+                    .is_ok_and(|s| s.success())
+            })
+            && !p.exists();
+        if deleted {
+            report.bytes_freed += bytes;
+            report.removed.push(Removed {
+                path: p.display().to_string(),
+                bytes,
+            });
+        } else {
+            left.push((p, bytes));
+        }
+    }
+    if left.is_empty() {
+        return;
+    }
+    let mounts = crate::simruntime::mounts();
+    let items: Vec<_> = left
+        .iter()
+        .map(|(p, _)| {
+            (
+                p.clone(),
+                crate::simruntime::mount_of(p, &mounts).map(Path::to_path_buf),
+            )
+        })
+        .collect();
+    let script = runtime_removal_script(&items);
+    let out = std::process::Command::new("/usr/bin/osascript")
+        .args(["-e", &admin_applescript(&script)])
+        .output();
+    let cancelled = out
+        .as_ref()
+        .is_ok_and(|o| String::from_utf8_lossy(&o.stderr).contains("-128"));
+    for (p, bytes) in left {
+        if !p.exists() {
+            report.bytes_freed += bytes;
+            report.removed.push(Removed {
+                path: p.display().to_string(),
+                bytes,
+            });
+        } else if cancelled {
+            report.fail(&p, "cancelled — no password was entered");
+        } else {
+            report.fail(&p, "macOS didn't allow removing it");
+        }
     }
 }
 
@@ -397,5 +531,70 @@ mod tests {
         assert!(!target.exists());
         assert_eq!(report.removed.len(), 1);
         assert!(report.bytes_freed > 0);
+    }
+
+    #[test]
+    fn simulator_runtime_policy() {
+        let (_d, env) = setup();
+        let g = Guard::new(&env);
+        let images = env.root.join("Library/Developer/CoreSimulator/Images");
+        let bundles = env.root.join("Library/Developer/CoreSimulator/Profiles/Runtimes");
+        fs::create_dir_all(&images).unwrap();
+        fs::create_dir_all(bundles.join("iOS 17.5.simruntime")).unwrap();
+        let dmg = images.join("7D832126-03E7-45A9-86CF-E1E9A1B2C3D4.dmg");
+        fs::write(&dmg, b"x").unwrap();
+        fs::write(images.join("images.plist"), b"x").unwrap();
+        fs::write(images.join("other.dmg"), b"x").unwrap();
+
+        assert!(g.check_simulator_runtime(&dmg).is_ok());
+        assert!(g.check_simulator_runtime(&bundles.join("iOS 17.5.simruntime")).is_ok());
+        assert!(g.check_simulator_runtime(&images.join("images.plist")).is_err());
+        assert!(
+            g.check_simulator_runtime(&images.join("other.dmg")).is_err(),
+            "not a UUID name"
+        );
+        assert!(g.check_simulator_runtime(&images).is_err(), "the folder itself");
+        assert!(g
+            .check_simulator_runtime(&images.join("../Images/7D832126-03E7-45A9-86CF-E1E9A1B2C3D4.dmg"))
+            .is_err());
+        assert!(g.check_simulator_runtime(&env.home.join("Library/Caches/Foo")).is_err());
+        assert!(g.check_simulator_runtime(&env.root.join("System")).is_err());
+
+        // A UUID-named link pointing elsewhere is refused.
+        #[cfg(unix)]
+        {
+            let link = images.join("AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE.dmg");
+            std::os::unix::fs::symlink(env.home.join("Documents/work"), &link).unwrap();
+            assert!(g.check_simulator_runtime(&link).is_err());
+        }
+        // A runtime-shaped name in any other folder is refused.
+        let elsewhere = env.home.join("Downloads/7D832126-03E7-45A9-86CF-E1E9A1B2C3D4.dmg");
+        fs::write(&elsewhere, b"x").unwrap();
+        assert!(g.check_simulator_runtime(&elsewhere).is_err());
+    }
+
+    #[test]
+    fn runtime_removal_script_quotes_everything() {
+        let script = runtime_removal_script(&[
+            (
+                PathBuf::from("/Library/Developer/CoreSimulator/Images/7D83.dmg"),
+                Some(PathBuf::from("/Library/Developer/CoreSimulator/Volumes/iOS_21F79")),
+            ),
+            (
+                PathBuf::from("/Library/Developer/CoreSimulator/Profiles/Runtimes/it's iOS 16.simruntime"),
+                None,
+            ),
+        ]);
+        assert_eq!(
+            script,
+            "/usr/bin/hdiutil detach -force '/Library/Developer/CoreSimulator/Volumes/iOS_21F79' >/dev/null 2>&1; \
+             /bin/rm -rf '/Library/Developer/CoreSimulator/Images/7D83.dmg'; \
+             /bin/rm -rf '/Library/Developer/CoreSimulator/Profiles/Runtimes/it'\\''s iOS 16.simruntime'"
+        );
+        let apple = admin_applescript(r#"echo "a\b""#);
+        assert_eq!(
+            apple,
+            r#"do shell script "echo \"a\\b\"" with administrator privileges"#
+        );
     }
 }
