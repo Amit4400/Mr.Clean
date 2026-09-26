@@ -1,12 +1,12 @@
-import { Archive, Bug, CircleCheck, ExternalLink, FileCode2, GitBranch, Info, KeyRound, Package, Power, RotateCcw, ShieldAlert, ShieldCheck, StopCircle, SquareTerminal, type LucideIcon } from "lucide-react";
+import { Archive, Bug, CircleAlert, CircleCheck, CircleHelp, Wrench, ExternalLink, FileCode2, GitBranch, Info, KeyRound, Package, Power, RotateCcw, ShieldAlert, ShieldCheck, StopCircle, SquareTerminal, type LucideIcon } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
 
-import { Badge, Button, Card, Empty, Page, Skeleton, SoftTile, cx, type Tone } from "../components/ui";
+import { Badge, Button, Card, Empty, Modal, Page, Skeleton, SoftTile, cx, type Tone } from "../components/ui";
 import { api } from "../lib/api";
 import { ago, tildify } from "../lib/format";
 import { useStore } from "../lib/store";
-import type { Area, Finding, QuarantineEntry, SecurityReport, Severity } from "../lib/types";
+import type { Area, Finding, Fix, ProtectionCheck, QuarantineEntry, SecurityReport, Severity } from "../lib/types";
 
 const SEV: Record<Severity, { label: string; tone: Tone; color: string }> = {
   high: { label: "High", tone: "danger", color: "var(--c-danger)" },
@@ -33,10 +33,30 @@ export default function Security() {
   const [quarantine, setQuarantine] = useState<QuarantineEntry[]>([]);
   const [done, setDone] = useState<Set<string>>(new Set());
 
+  const [checks, setChecks] = useState<ProtectionCheck[] | null>(null);
+  const [fixing, setFixing] = useState<Finding | null>(null);
+  const [fixBusy, setFixBusy] = useState(false);
+
   const loadQuarantine = () => api.quarantineList().then(setQuarantine).catch(() => {});
   useEffect(() => {
     loadQuarantine();
+    // Protection checks are quick and read-only, so they show without a scan.
+    api.protectionChecks().then(setChecks).catch(() => setChecks([]));
   }, []);
+
+  const applyFix = async () => {
+    if (!fixing) return;
+    setFixBusy(true);
+    try {
+      toast(await api.securityFix(fixing.id));
+      setFixing(null);
+      await scan();
+    } catch (e) {
+      toast(String(e), "error");
+    } finally {
+      setFixBusy(false);
+    }
+  };
 
   const scan = async () => {
     setScanning(true);
@@ -52,9 +72,9 @@ export default function Security() {
 
   const doQuarantine = async (f: Finding) => {
     try {
-      await api.securityQuarantine(f.id);
+      const q = await api.securityQuarantine(f.id);
       setDone((d) => new Set(d).add(f.id));
-      toast("Moved to quarantine. You can restore it below.");
+      toast(q.stopped ? "Moved to quarantine and stopped it. You can restore it below." : "Moved to quarantine. You can restore it below.");
       loadQuarantine();
     } catch (e) {
       toast(String(e), "error");
@@ -100,6 +120,8 @@ export default function Security() {
           <Skeleton rows={5} />
         </Card>
       )}
+
+      {!security && !scanning && checks && checks.length > 0 && <Protection checks={checks} />}
 
       {!security && !scanning && (
         <Card>
@@ -170,6 +192,8 @@ export default function Security() {
             )}
           </Card>
 
+          {checks && checks.length > 0 && <Protection checks={checks} />}
+
           <div className="grid grid-cols-[minmax(0,1fr)_280px] items-start gap-5">
             <Card className="divide-y divide-line overflow-hidden">
               {visible.length === 0 && (
@@ -180,7 +204,7 @@ export default function Security() {
               )}
               {visible.map((f, i) => (
                 <motion.div key={f.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i, 10) * 0.04, duration: 0.3 }}>
-                  <FindingRow f={f} home={home} quarantined={done.has(f.id)} onQuarantine={() => doQuarantine(f)} />
+                  <FindingRow f={f} home={home} quarantined={done.has(f.id)} onQuarantine={() => doQuarantine(f)} onFix={() => setFixing(f)} />
                 </motion.div>
               ))}
             </Card>
@@ -218,7 +242,76 @@ export default function Security() {
         Mr.Clean spots known developer-targeted threats and suspicious patterns. It complements, but doesn't replace, a full antivirus such as XProtect or your company's endpoint
         protection.
       </p>
+      <Modal
+        open={!!fixing}
+        title="Apply this fix?"
+        onClose={() => !fixBusy && setFixing(null)}
+        footer={
+          <>
+            <Button onClick={() => setFixing(null)} disabled={fixBusy}>
+              Cancel
+            </Button>
+            <Button variant="primary" busy={fixBusy} onClick={applyFix}>
+              Apply fix
+            </Button>
+          </>
+        }
+      >
+        {fixing?.fix && (
+          <>
+            <p className="mb-2">{FIX[fixing.fix].what}</p>
+            <code className="selectable block rounded-[8px] bg-ink/[0.05] px-2.5 py-1.5 font-mono text-[11.5px]">{FIX[fixing.fix].command}</code>
+            <p className="mt-2 text-[12px] text-muted">This changes your global git settings. You can undo it by running the opposite command.</p>
+          </>
+        )}
+      </Modal>
     </Page>
+  );
+}
+
+const FIX: Record<Fix, { what: string; command: string }> = {
+  unset_global_hooks_path: { what: "Stop every repository from running the global hooks folder.", command: "git config --global --unset core.hooksPath" },
+  use_keychain_credentials: { what: "Store git passwords in the macOS Keychain instead of a plain text file.", command: "git config --global credential.helper osxkeychain" },
+};
+
+const CHECK_STATE = {
+  pass: { icon: CircleCheck, color: "var(--c-safe)", label: "On" },
+  fail: { icon: CircleAlert, color: "var(--c-danger)", label: "Off" },
+  unknown: { icon: CircleHelp, color: "var(--c-warn)", label: "Couldn't check" },
+} as const;
+
+/** FileVault, Firewall and friends: read-only checks with a way to fix each. */
+function Protection({ checks }: { checks: ProtectionCheck[] }) {
+  const off = checks.filter((c) => c.state !== "pass").length;
+  return (
+    <Card className="mb-4 p-4">
+      <div className="mb-3 flex items-baseline justify-between px-1">
+        <h2 className="text-[15px] font-semibold">Mac protection</h2>
+        <span className={cx("text-[12px] font-medium", off ? "text-warn-text" : "text-safe-text")}>
+          {off ? `${off} to review` : "All protections on"}
+        </span>
+      </div>
+      <ul className="grid grid-cols-3 gap-2">
+        {checks.map((c) => {
+          const st = CHECK_STATE[c.state];
+          return (
+            <li key={c.id} className="flex items-center gap-2.5 rounded-[12px] bg-ink/[0.025] px-3 py-2.5" title={c.how ?? c.about}>
+              <st.icon className="size-5 shrink-0" style={{ color: st.color }} aria-label={st.label} />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[12.5px] font-semibold">{c.title}</div>
+                <div className="truncate text-[11px] text-muted">{c.state === "pass" ? c.about : c.how ?? c.about}</div>
+              </div>
+              {c.state !== "pass" && c.pane && (
+                <Button size="sm" variant={c.state === "fail" ? "primary" : "secondary"} onClick={() => api.openSettings(c.pane!)}>
+                  {c.state === "fail" ? "Fix" : "Check"}
+                </Button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      <p className="mt-2 px-1 text-[11px] text-faint">Fix opens the right page in System Settings. Mr.Clean never changes these for you.</p>
+    </Card>
   );
 }
 
@@ -254,7 +347,7 @@ function Checked({ report }: { report: SecurityReport }) {
   );
 }
 
-function FindingRow({ f, home, quarantined, onQuarantine }: { f: Finding; home: string | null; quarantined: boolean; onQuarantine: () => void }) {
+function FindingRow({ f, home, quarantined, onQuarantine, onFix }: { f: Finding; home: string | null; quarantined: boolean; onQuarantine: () => void; onFix: () => void }) {
   const [open, setOpen] = useState(false);
   const A = AREA[f.area];
   return (
@@ -282,6 +375,11 @@ function FindingRow({ f, home, quarantined, onQuarantine }: { f: Finding; home: 
             {f.path && (
               <Button size="sm" onClick={() => api.reveal(f.path!)}>
                 <ExternalLink className="size-3.5" aria-hidden /> Show in Finder
+              </Button>
+            )}
+            {f.fix && (
+              <Button size="sm" variant="primary" onClick={onFix}>
+                <Wrench className="size-3.5" aria-hidden /> Fix
               </Button>
             )}
             {f.can_quarantine && (

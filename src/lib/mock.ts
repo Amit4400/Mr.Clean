@@ -37,6 +37,9 @@ const cleanerScan = () => {
       ["Library/Developer/CoreSimulator/Devices/91BD-iPhone 14", 11.8 * GB, 320],
       ["Library/Developer/CoreSimulator/Devices/C0FE-iPad Air", 9.1 * GB, 400],
     ], { command: "xcrun simctl delete unavailable" }),
+    rule("simulator-runtimes", "Simulator runtimes (iOS versions)", "xcode", "needs_password", "Downloaded iOS/watchOS runtimes, several GB each. They belong to macOS, so it asks for your password to remove them. Xcode downloads one again if you need it.", [
+      ["iOS 17.5 (21F79)", 7.2 * GB, 900],
+    ], { always_permanent: true }),
     rule("xcode-derived-data", "Xcode DerivedData", "xcode", "safe", "Build products and indexes. Xcode rebuilds them on the next build.", [
       ["Library/Developer/Xcode/DerivedData/ShopApp-abc", 3.4 * GB, 30],
       ["Library/Developer/Xcode/DerivedData/Wallet-def", 2.1 * GB, 90],
@@ -116,19 +119,20 @@ const snapshot = () => ({
 
 const security = () => ({
   findings: [
-    { id: "1", severity: "high", area: "startup", title: "Suspicious startup item: com.apple.sysupdate", detail: "This item runs node on a script hidden in /Users/demo/.npl/main.js.", path: `${HOME}/Library/LaunchAgents/com.apple.sysupdate.plist`, line: null, evidence: "/usr/local/bin/node /Users/demo/.npl/main.js", advice: "If you don't recognise it, quarantine it, then run: launchctl bootout gui/$(id -u)/com.apple.sysupdate", can_quarantine: true },
-    { id: "2", severity: "high", area: "project_code", title: "Suspicious code in a project config file", detail: "This config file hides code far to the right behind a wall of spaces. Fake job-interview projects (Contagious Interview / BeaverTail) hide malware in files like this.", path: `${HOME}/projects/test-task/tailwind.config.js`, line: 14, evidence: "module.exports = {…};                                        eval(atob('Y29uc3Qg…'))", advice: "Don't run npm install / npm start in this project until you've checked the file.", can_quarantine: false },
-    { id: "3", severity: "medium", area: "git", title: "Suspicious git hook", detail: "This repository hook pushes code to a remote on its own.", path: `${HOME}/projects/shop/.git/hooks/post-commit`, line: 2, evidence: "git push -f origin HEAD >/dev/null 2>&1 &", advice: "Hooks run automatically on commit/push. If you didn't add this, quarantine it.", can_quarantine: true },
-    { id: "4", severity: "medium", area: "secrets", title: "npm token saved in plain text", detail: "~/.npmrc holds a publish token. npm worms read this file to publish malware under your name.", path: `${HOME}/.npmrc`, line: 1, evidence: "npm_abcd…", advice: "Use a short-lived or read-only token, and enable 2FA for publishing.", can_quarantine: false },
-    { id: "5", severity: "low", area: "git", title: "Repository commits under a different email", detail: "Commits in this repo are signed as <someone@else.com>, not your usual <you@company.com>.", path: `${HOME}/projects/api`, line: null, evidence: null, advice: null, can_quarantine: false },
-    { id: "6", severity: "info", area: "git", title: "Your git identity", detail: "New commits are signed as Demo User <you@company.com>. If this isn't you, something changed your git config.", path: null, line: null, evidence: null, advice: null, can_quarantine: false },
-    { id: "7", severity: "info", area: "startup", title: "Startup item: com.google.keystone.agent", detail: "This item starts automatically.", path: `${HOME}/Library/LaunchAgents/com.google.keystone.agent.plist`, line: null, evidence: "/Users/demo/Library/Google/GoogleSoftwareUpdate/…/GoogleSoftwareUpdateAgent", advice: null, can_quarantine: false },
+    { id: "1", severity: "high", area: "startup", title: "Suspicious startup item: com.apple.sysupdate", detail: "This item runs node on a script hidden in /Users/demo/.npl/main.js.", path: `${HOME}/Library/LaunchAgents/com.apple.sysupdate.plist`, line: null, evidence: "/usr/local/bin/node /Users/demo/.npl/main.js", advice: "If you don't recognise it, quarantine it, then run: launchctl bootout gui/$(id -u)/com.apple.sysupdate", can_quarantine: true, fix: null },
+    { id: "2", severity: "high", area: "project_code", title: "Suspicious code in a project config file", detail: "This config file hides code far to the right behind a wall of spaces. Fake job-interview projects (Contagious Interview / BeaverTail) hide malware in files like this.", path: `${HOME}/projects/test-task/tailwind.config.js`, line: 14, evidence: "module.exports = {…};                                        eval(atob('Y29uc3Qg…'))", advice: "Don't run npm install / npm start in this project until you've checked the file.", can_quarantine: false, fix: null },
+    { id: "3", severity: "medium", area: "git", title: "Suspicious git hook", detail: "This repository hook pushes code to a remote on its own.", path: `${HOME}/projects/shop/.git/hooks/post-commit`, line: 2, evidence: "git push -f origin HEAD >/dev/null 2>&1 &", advice: "Hooks run automatically on commit/push. If you didn't add this, quarantine it.", can_quarantine: true, fix: null },
+    { id: "4", severity: "medium", area: "secrets", title: "npm token saved in plain text", detail: "~/.npmrc holds a publish token. npm worms read this file to publish malware under your name.", path: `${HOME}/.npmrc`, line: 1, evidence: "npm_abcd…", advice: "Use a short-lived or read-only token, and enable 2FA for publishing.", can_quarantine: false, fix: null },
+    { id: "8", severity: "medium", area: "secrets", title: "Git saves passwords in plain text", detail: "credential.helper=store keeps your GitHub token unencrypted in ~/.git-credentials.", path: `${HOME}/.git-credentials`, line: null, evidence: null, advice: "Use the Keychain instead: git config --global credential.helper osxkeychain", can_quarantine: false, fix: "use_keychain_credentials" },
+    { id: "5", severity: "low", area: "git", title: "Repository commits under a different email", detail: "Commits in this repo are signed as <someone@else.com>, not your usual <you@company.com>.", path: `${HOME}/projects/api`, line: null, evidence: null, advice: null, can_quarantine: false, fix: null },
+    { id: "6", severity: "info", area: "git", title: "Your git identity", detail: "New commits are signed as Demo User <you@company.com>. If this isn't you, something changed your git config.", path: null, line: null, evidence: null, advice: null, can_quarantine: false, fix: null },
+    { id: "7", severity: "info", area: "startup", title: "Startup item: com.google.keystone.agent", detail: "This item starts automatically.", path: `${HOME}/Library/LaunchAgents/com.google.keystone.agent.plist`, line: null, evidence: "/Users/demo/Library/Google/GoogleSoftwareUpdate/…/GoogleSoftwareUpdateAgent", advice: null, can_quarantine: false, fix: null },
   ],
   scanned_repos: 23,
   scanned_projects: 41,
   scanned_packages: 18_230,
   duration_ms: 4210,
-  counts: { high: 2, medium: 2, low: 1, info: 2 },
+  counts: { high: 2, medium: 3, low: 1, info: 2 },
 });
 
 const deleted = (paths: string[]) => ({ removed: paths.map((p) => ({ path: p, bytes: 1.5 * GB })), failed: [], bytes_freed: paths.length * 1.5 * GB });
@@ -143,6 +147,18 @@ export async function mock<T>(cmd: string, args?: Record<string, unknown>): Prom
     case "device_info": return r({ name: "MacBook Pro", chip: "Apple M2 Pro", memory_bytes: 16 * GB, os_label: "macOS Sonoma 14.5", kind: "laptop" }, 80);
     case "memory_breakdown": return r({ total: 16 * GB, apps: 4.2 * GB, wired: 1.1 * GB, compressed: 0.5 * GB, free: 10.2 * GB }, 20);
     case "app_icon": return r(null, 0);
+    case "folder_explain": {
+      const name = String(a.path).split("/").pop() ?? "";
+      const known: Record<string, [string, string, string]> = {
+        Library: ["Your Library", "Settings, caches and data for your apps and macOS. Never delete the folder itself; the Clean page clears the safe parts inside it.", "leave_it"],
+        Downloads: ["Downloads", "Files you downloaded. Often full of old installers (.dmg, .pkg, .zip) you no longer need.", "yours"],
+        Movies: ["Movies", "Your videos and screen recordings, often large.", "yours"],
+        Documents: ["Documents", "Your documents. Check before deleting anything here.", "yours"],
+        Desktop: ["Desktop", "Files on your desktop.", "yours"],
+      };
+      const k = known[name];
+      return r(k ? { title: k[0], text: k[1], advice: k[2] } : null, 50);
+    }
     case "home_dir": return r(HOME, 0);
     case "has_full_disk_access": return r(false, 0);
     case "cleaner_scan": return r(cleanerScan(), 1200);
@@ -152,9 +168,10 @@ export async function mock<T>(cmd: string, args?: Record<string, unknown>): Prom
     }
     case "node_modules_find":
       return r([
-        { path: `${HOME}/projects/old-landing/node_modules`, project: `${HOME}/projects/old-landing`, bytes: 812 * MB, last_touched: now - 220 * day, stale: true },
-        { path: `${HOME}/projects/rn-demo/node_modules`, project: `${HOME}/projects/rn-demo`, bytes: 1.4 * GB, last_touched: now - 95 * day, stale: true },
-        { path: `${HOME}/projects/shop/node_modules`, project: `${HOME}/projects/shop`, bytes: 690 * MB, last_touched: now - 2 * day, stale: false },
+        { path: `${HOME}/projects/old-landing/node_modules`, project: `${HOME}/projects/old-landing`, bytes: 812 * MB, last_touched: now - 220 * day, stale: true, in_cloud: false },
+        { path: `${HOME}/projects/rn-demo/node_modules`, project: `${HOME}/projects/rn-demo`, bytes: 1.4 * GB, last_touched: now - 95 * day, stale: true, in_cloud: false },
+        { path: `${HOME}/Documents/Cursor project/landing/node_modules`, project: `${HOME}/Documents/Cursor project/landing`, bytes: 0, last_touched: now - 16 * day, stale: false, in_cloud: true },
+        { path: `${HOME}/projects/shop/node_modules`, project: `${HOME}/projects/shop`, bytes: 690 * MB, last_touched: now - 2 * day, stale: false, in_cloud: false },
       ], 900);
     case "node_modules_remove":
     case "bigfiles_remove": return r(deleted(a.paths as string[]), 500);
@@ -165,7 +182,17 @@ export async function mock<T>(cmd: string, args?: Record<string, unknown>): Prom
     case "process_quit": return r({ pid: a.pid, name: a.name, ok: true, message: "Asked to quit." });
     case "app_quit": return r([{ pid: 1, name: a.app, ok: true, message: "Asked the app to quit (it may ask to save)." }]);
     case "security_scan": return r(security(), 1500);
-    case "security_quarantine": return r({ id: "q1", original: "x", stored: "y", reason: "z", at: now, mode: null });
+    case "security_quarantine": return r({ id: "q1", original: "x", stored: "y", reason: "z", at: now, mode: null, stopped: true });
+    case "security_fix": return r("Git now uses the Keychain. Delete ~/.git-credentials after your next successful push.", 300);
+    case "open_settings": return r(undefined, 0);
+    case "protection_checks": return r([
+      { id: "filevault", title: "FileVault disk encryption", about: "Keeps your files unreadable if your Mac is lost or stolen.", state: "pass", pane: "file_vault", how: null },
+      { id: "firewall", title: "Firewall", about: "Blocks unwanted incoming connections.", state: "fail", pane: "firewall", how: null },
+      { id: "gatekeeper", title: "Gatekeeper", about: "Only lets apps from identified developers open.", state: "pass", pane: "privacy_security", how: null },
+      { id: "sip", title: "System Integrity Protection", about: "Stops anything, even with your password, from changing macOS system files.", state: "pass", pane: null, how: "Restart into Recovery, open Terminal, run `csrutil enable`, then restart." },
+      { id: "updates", title: "Automatic macOS updates", about: "Installs security fixes as soon as Apple ships them.", state: "unknown", pane: "software_update", how: "Click the ⓘ next to Automatic updates and turn on \"Install macOS updates\"." },
+      { id: "remote_login", title: "Remote Login (SSH) off", about: "When on, anyone with your password can log in over the network.", state: "pass", pane: "sharing", how: null },
+    ], 400);
     case "quarantine_list": return r([], 50);
     default: return r(undefined, 50);
   }

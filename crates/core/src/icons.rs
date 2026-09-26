@@ -39,6 +39,36 @@ pub fn find_app(env: &Env, name: &str) -> Option<PathBuf> {
     .find(|p| p.is_dir())
 }
 
+/// The name of the installed app with this bundle identifier, if any.
+pub fn app_for_bundle_id(env: &Env, id: &str) -> Option<String> {
+    let dirs = [
+        env.root.join("Applications"),
+        env.home.join("Applications"),
+        env.root.join("System/Applications"),
+    ];
+    for dir in dirs {
+        let Ok(rd) = std::fs::read_dir(dir) else { continue };
+        for e in rd.flatten() {
+            let path = e.path();
+            if path.extension().is_none_or(|x| x != "app") {
+                continue;
+            }
+            let found = plist::Value::from_file(path.join("Contents/Info.plist"))
+                .ok()
+                .and_then(|v| {
+                    v.as_dictionary()?
+                        .get("CFBundleIdentifier")?
+                        .as_string()
+                        .map(str::to_lowercase)
+                });
+            if found.as_deref() == Some(id.to_lowercase().as_str()) {
+                return path.file_stem().map(|n| n.to_string_lossy().to_string());
+            }
+        }
+    }
+    None
+}
+
 /// The `.icns` file a bundle declares as its icon.
 pub fn icon_file(bundle: &Path) -> Option<PathBuf> {
     let resources = bundle.join("Contents/Resources");

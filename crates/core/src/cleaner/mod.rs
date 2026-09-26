@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use crate::env::{Env, Os};
 use crate::fsutil::{modified_secs, path_size, Cancel, Progress};
 use crate::safety::{remove_checked, DeleteMode, DeleteReport, Guard};
+use crate::simruntime;
 pub use rules::{Category, Rule, Safety, Target};
 
 #[derive(Debug, Clone, Serialize)]
@@ -84,17 +85,51 @@ pub fn xcode_installed(env: &Env) -> bool {
         .unwrap_or(false)
 }
 
+/// Entries of `dir` whose name starts with `prefix`.
+fn prefixed_entries(dir: &Path, prefix: &str) -> Vec<PathBuf> {
+    let Ok(rd) = std::fs::read_dir(dir) else { return vec![] };
+    rd.flatten()
+        .filter(|e| e.file_name().to_string_lossy().starts_with(prefix))
+        .map(|e| e.path())
+        .collect()
+}
+
 /// All expanded target paths of every rule, used to avoid double counting
 /// (e.g. ~/Library/Caches/Yarn belongs to "Yarn", not "App caches").
 fn all_targets(env: &Env, rules: &[Rule]) -> Vec<(&'static str, PathBuf)> {
-    rules
-        .iter()
-        .flat_map(|r| {
-            r.targets
-                .iter()
-                .filter_map(move |t| env.expand(t.raw()).map(|p| (r.id, p)))
-        })
-        .collect()
+    let mut out = Vec::new();
+    for r in rules {
+        for t in r.targets {
+            let Some(base) = env.expand(t.raw()) else { continue };
+            match t {
+                Target::Prefixed(_, prefix) => {
+                    out.extend(prefixed_entries(&base, prefix).into_iter().map(|p| (r.id, p)))
+                }
+                _ => out.push((r.id, base)),
+            }
+        }
+    }
+    out
+}
+
+/// Add `p` (found under this rule's `base`) unless a more specific rule owns
+/// it. If another rule owns something deeper inside `p`, add `p`'s other
+/// children instead, so e.g. App caches still lists `Caches/Google/Chrome`
+/// while Android Studio keeps `Caches/Google/AndroidStudio*`.
+fn push_unclaimed(p: PathBuf, base: &Path, rule_id: &str, owned: &[(&'static str, PathBuf)], out: &mut Vec<PathBuf>) {
+    let others = || owned.iter().filter(|(id, _)| *id != rule_id);
+    if others().any(|(_, o)| p.starts_with(o) && o.starts_with(base) && o != base) {
+        return;
+    }
+    if others().any(|(_, o)| o.starts_with(&p)) {
+        if let Ok(rd) = std::fs::read_dir(&p) {
+            for e in rd.flatten() {
+                push_unclaimed(e.path(), base, rule_id, owned, out);
+            }
+        }
+        return;
+    }
+    out.push(p);
 }
 
 /// Paths a rule would remove right now: the folder itself for `Dir`, its
@@ -111,11 +146,12 @@ fn rule_items(env: &Env, rule: &Rule, owned: &[(&'static str, PathBuf)]) -> Vec<
             Target::Contents(_) => {
                 let Ok(rd) = std::fs::read_dir(&base) else { continue };
                 for e in rd.flatten() {
-                    let p = e.path();
-                    let claimed = owned.iter().any(|(id, o)| *id != rule.id && o.starts_with(&p));
-                    if !claimed {
-                        out.push(p);
-                    }
+                    push_unclaimed(e.path(), &base, rule.id, owned, &mut out);
+                }
+            }
+            Target::Prefixed(_, prefix) => {
+                for p in prefixed_entries(&base, prefix) {
+                    push_unclaimed(p, &base, rule.id, owned, &mut out);
                 }
             }
         }
@@ -131,6 +167,7 @@ pub fn scan(env: &Env, cancel: &Cancel, progress: &Progress) -> CleanerScan {
     let rules = rules::rules_for(env.os);
     let owned = all_targets(env, &rules);
     let xcode = (env.os == Os::Mac).then(|| xcode_installed(env));
+    let mounts = simruntime::mounts();
     let mut result = CleanerScan {
         rules: vec![],
         total_bytes: 0,
@@ -142,13 +179,18 @@ pub fn scan(env: &Env, cancel: &Cancel, progress: &Progress) -> CleanerScan {
         if cancel.is_cancelled() {
             break;
         }
+        let runtimes = rule.safety == Safety::NeedsPassword;
         let mut items: Vec<Item> = rule_items(env, rule, &owned)
             .into_iter()
+            .filter(|p| !runtimes || simruntime::is_runtime_item(p))
             .map(|p| Item {
-                name: p
-                    .file_name()
-                    .map(|n| n.to_string_lossy().to_string())
-                    .unwrap_or_default(),
+                name: if runtimes {
+                    simruntime::label(&p, &mounts)
+                } else {
+                    p.file_name()
+                        .map(|n| n.to_string_lossy().to_string())
+                        .unwrap_or_default()
+                },
                 bytes: path_size(&p, Some(cancel), Some(progress)),
                 modified: modified_secs(&p),
                 path: p.display().to_string(),
@@ -214,6 +256,11 @@ pub fn clean(env: &Env, requests: &[CleanRequest], mode: DeleteMode) -> DeleteRe
                 })
                 .collect(),
         };
+        if rule.safety == Safety::NeedsPassword {
+            let xcode = xcode_installed(env);
+            crate::safety::remove_simulator_runtimes(env, &chosen, xcode, &mut report);
+            continue;
+        }
         let roots = rule_roots(env, rule);
         let mode = if rule.always_permanent {
             DeleteMode::Permanent
@@ -306,6 +353,43 @@ mod tests {
         assert!(r.removed.is_empty());
         assert_eq!(r.failed.len(), 1);
         assert!(h.join("Documents/keep.txt").exists());
+    }
+
+    #[test]
+    fn android_studio_rule_leaves_chrome_to_app_caches() {
+        let (_d, env) = fake_mac();
+        let h = env.home.clone();
+        write(&h.join("Library/Caches/Google/Chrome/Default/cache"), 30_000);
+        write(&h.join("Library/Caches/Google/AndroidStudio2024.1/index"), 20_000);
+        let s = scan(&env, &Cancel::new(), &Progress::default());
+        let names = |id: &str| -> Vec<String> {
+            s.rules
+                .iter()
+                .find(|r| r.rule.id == id)
+                .map(|r| r.items.iter().map(|i| i.path.clone()).collect())
+                .unwrap_or_default()
+        };
+        let jb = names("jetbrains");
+        assert_eq!(jb.len(), 1);
+        assert!(jb[0].ends_with("AndroidStudio2024.1"));
+        let caches = names("user-caches");
+        assert!(caches.iter().any(|p| p.ends_with("Google/Chrome")), "{caches:?}");
+        assert!(!caches.iter().any(|p| p.contains("AndroidStudio")));
+    }
+
+    #[test]
+    fn simulator_runtimes_are_counted_once() {
+        let (_d, env) = fake_mac();
+        let base = env.root.join("Library/Developer/CoreSimulator");
+        write(&base.join("Images/7D832126-03E7-45A9-86CF-E1E9A1B2C3D4.dmg"), 70_000);
+        write(&base.join("Images/images.plist"), 500);
+        // The mounted copy of that same image must not be added again.
+        write(&base.join("Volumes/iOS_21F79/Library/big"), 70_000);
+        let s = scan(&env, &Cancel::new(), &Progress::default());
+        let rt = s.rules.iter().find(|r| r.rule.id == "simulator-runtimes").unwrap();
+        assert_eq!(rt.items.len(), 1, "{:?}", rt.items);
+        assert!(rt.items[0].name.starts_with("Simulator runtime 7D832126"));
+        assert!(rt.total_bytes < 100_000);
     }
 
     #[test]

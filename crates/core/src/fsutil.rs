@@ -87,6 +87,27 @@ pub fn path_size(path: &Path, cancel: Option<&Cancel>, progress: Option<&Progres
     total
 }
 
+/// Total apparent size (file lengths) of a file or folder. Unlike
+/// [`path_size`], this counts online-only iCloud files at their full size.
+pub fn path_size_logical(path: &Path) -> u64 {
+    let Ok(meta) = std::fs::symlink_metadata(path) else {
+        return 0;
+    };
+    if !meta.is_dir() {
+        return meta.len();
+    }
+    jwalk::WalkDir::new(path)
+        .follow_links(false)
+        .skip_hidden(false)
+        .min_depth(1)
+        .into_iter()
+        .flatten()
+        .filter_map(|e| e.metadata().ok())
+        .filter(|m| m.is_file())
+        .map(|m| m.len())
+        .sum()
+}
+
 /// Latest modification time of a path (not recursive).
 pub fn modified_secs(path: &Path) -> Option<i64> {
     let m = std::fs::symlink_metadata(path).ok()?.modified().ok()?;

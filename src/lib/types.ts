@@ -52,7 +52,7 @@ export interface SystemInfo {
 }
 
 export type Category = "xcode" | "android" | "java_script" | "languages" | "tools" | "system";
-export type Safety = "safe" | "review" | "report_only";
+export type Safety = "safe" | "review" | "report_only" | "needs_password";
 
 export interface RuleInfo {
   id: string;
@@ -102,6 +102,7 @@ export interface NodeModulesHit {
   bytes: number;
   last_touched: number | null;
   stale: boolean;
+  in_cloud: boolean;
 }
 
 export type Kind = "video" | "image" | "audio" | "archive" | "disk_image" | "installer" | "document" | "other";
@@ -193,6 +194,20 @@ export interface Finding {
   evidence: string | null;
   advice: string | null;
   can_quarantine: boolean;
+  fix: Fix | null;
+}
+
+export type Fix = "unset_global_hooks_path" | "use_keychain_credentials";
+
+export type Pane = "full_disk_access" | "file_vault" | "firewall" | "privacy_security" | "software_update" | "sharing";
+
+export interface ProtectionCheck {
+  id: string;
+  title: string;
+  about: string;
+  state: "pass" | "fail" | "unknown";
+  pane: Pane | null;
+  how: string | null;
 }
 
 export interface SecurityReport {
@@ -211,10 +226,19 @@ export interface QuarantineEntry {
   reason: string;
   at: number;
   mode: number | null;
+  stopped: boolean;
 }
 
 export interface ScanProgress {
   task: string;
   files: number;
   bytes: number;
+}
+
+export type Advice = "safe_to_delete" | "use_the_app" | "leave_it" | "yours" | "check_first";
+
+export interface Explanation {
+  title: string;
+  text: string;
+  advice: Advice;
 }

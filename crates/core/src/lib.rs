@@ -4,11 +4,13 @@
 pub mod bigfiles;
 pub mod cleaner;
 pub mod env;
+pub mod explain;
 pub mod fsutil;
 pub mod icons;
 pub mod memory;
 pub mod safety;
 pub mod security;
+pub mod simruntime;
 pub mod system;
 
 pub use env::{Env, Os};

@@ -14,6 +14,7 @@ const SAFETY: Record<Safety, { label: string; tone: Tone }> = {
   safe: { label: "Safe", tone: "safe" },
   review: { label: "Review", tone: "warn" },
   report_only: { label: "Info only", tone: "neutral" },
+  needs_password: { label: "Needs password", tone: "info" },
 };
 
 // Generic icons for rules that aren't one tool.
@@ -59,7 +60,7 @@ export default function Cleaner() {
   };
 
   const selected = useMemo(() => {
-    if (!cleaner) return { bytes: 0, count: 0, requests: [] as CleanRequest[], lines: [] as { name: string; bytes: number; permanent: boolean }[] };
+    if (!cleaner) return { bytes: 0, count: 0, requests: [] as CleanRequest[], lines: [] as { name: string; bytes: number; permanent: boolean }[], password: false };
     let total = 0;
     let count = 0;
     const requests: CleanRequest[] = [];
@@ -74,7 +75,8 @@ export default function Cleaner() {
       requests.push({ rule_id: r.rule.id, paths: items.map((i) => i.path) });
       lines.push({ name: r.rule.name, bytes: b, permanent: r.rule.always_permanent });
     }
-    return { bytes: total, count, requests, lines };
+    const password = cleaner.rules.some((r) => r.rule.safety === "needs_password" && (sel[r.rule.id]?.size ?? 0) > 0);
+    return { bytes: total, count, requests, lines, password };
   }, [cleaner, sel]);
 
   const clean = async () => {
@@ -271,6 +273,11 @@ export default function Cleaner() {
             </li>
           ))}
         </ul>
+        {selected.password && (
+          <p className="mt-3 rounded-[10px] bg-info-soft px-3 py-2 text-[12px] text-info-text">
+            Simulator runtimes belong to macOS, so it will ask for your Mac password to remove them. They're deleted permanently.
+          </p>
+        )}
         <p className="mt-4 text-xs text-faint">Quit Xcode, Android Studio and your editors first for the best result.</p>
       </Modal>
     </Page>
@@ -325,7 +332,7 @@ function RuleRow({
           <div className="truncate text-[12px] text-muted">{r.note && r.rule.category !== "xcode" ? r.note : r.rule.description}</div>
         </div>
         <div className="tabular w-20 text-right text-[13.5px] font-semibold">{bytes(r.total_bytes)}</div>
-        <span className="flex w-[72px] justify-center">
+        <span className="flex w-[112px] justify-center">
           <Badge tone={SAFETY[r.rule.safety].tone}>{SAFETY[r.rule.safety].label}</Badge>
         </span>
         <ChevronRight className={cx("size-4 shrink-0 text-faint transition-transform duration-200", open && "rotate-90")} aria-hidden />
@@ -369,6 +376,9 @@ function RuleRow({
   );
 }
 
+const baseName = (p: string) => p.split("/").filter(Boolean).pop() ?? p;
+const parentOf = (p: string) => p.slice(0, p.replace(/\/+$/, "").lastIndexOf("/")) || "/";
+
 const AGES = [
   { value: 30, label: "30 days" },
   { value: 90, label: "90 days" },
@@ -406,7 +416,9 @@ function NodeModulesPanel() {
       setRemoving(false);
     }
   };
-  const list: NodeModulesHit[] = hits ?? [];
+  // Online-only iCloud copies use no space here, so there's nothing to free.
+  const list: NodeModulesHit[] = (hits ?? []).filter((h) => !h.in_cloud && h.bytes > 0);
+  const inCloud = (hits ?? []).filter((h) => h.in_cloud).length;
   const selBytes = list.filter((h) => sel.has(h.path)).reduce((a, h) => a + h.bytes, 0);
   const total = list.reduce((a, h) => a + h.bytes, 0);
 
@@ -438,7 +450,9 @@ function NodeModulesPanel() {
           <Package className="size-3.5" aria-hidden /> Find old node_modules
         </Button>
       ) : list.length === 0 ? (
-        <p className="py-4 text-center text-[12.5px] text-muted">No node_modules folders found in your projects.</p>
+        <p className="py-4 text-center text-[12.5px] text-muted">
+          {inCloud ? "Nothing to free: your node_modules folders are stored in iCloud, not on this Mac." : "No node_modules folders found in your projects."}
+        </p>
       ) : (
         <>
           <div className="mb-1 flex items-center justify-between text-[11.5px] text-faint">
@@ -466,11 +480,14 @@ function NodeModulesPanel() {
                 />
                 <FolderClosed className="size-4 shrink-0 fill-info/20 text-info" aria-hidden />
                 <div className="min-w-0 flex-1">
-                  <div className="selectable truncate text-[12.5px] font-medium" title={h.path}>
-                    {tildify(h.project, home)}
+                  <div className="selectable truncate text-[12.5px] font-semibold" title={h.path}>
+                    {baseName(h.project)}
+                  </div>
+                  <div className="selectable truncate text-[11px] text-faint" title={h.project}>
+                    {tildify(parentOf(h.project), home)}
                   </div>
                   <div className="text-[11px] text-faint">
-                    node_modules · {ago(h.last_touched)}
+                    {ago(h.last_touched)}
                     {h.stale && <span className="text-warn-text"> · old</span>}
                   </div>
                 </div>
@@ -478,6 +495,11 @@ function NodeModulesPanel() {
               </li>
             ))}
           </ul>
+          {inCloud > 0 && (
+            <p className="mt-2 text-[11px] text-faint">
+              {inCloud} more project{inCloud === 1 ? " is" : "s are"} stored in iCloud and {inCloud === 1 ? "doesn't" : "don't"} use space on this Mac.
+            </p>
+          )}
           <Button variant="danger" className="mt-3 w-full" disabled={sel.size === 0} busy={removing} onClick={remove}>
             <Trash2 className="size-3.5" aria-hidden /> Remove {sel.size > 0 ? bytes(selBytes) : "selected"}
           </Button>

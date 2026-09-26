@@ -1,12 +1,12 @@
 import { ChevronRight, ExternalLink, File, FolderClosed, FolderOpen, FolderSearch, Home, Search, StopCircle, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
-import { Badge, Button, Card, Checkbox, Chip, Empty, Modal, Page, Skeleton, SoftTile, cx } from "../components/ui";
+import { Badge, Button, Card, Checkbox, Chip, Empty, Modal, Page, Skeleton, SoftTile, cx, type Tone } from "../components/ui";
 import { api } from "../lib/api";
 import { ago, bytes, percent, tildify } from "../lib/format";
 import { isProtected } from "../lib/paths";
 import { useScanProgress, useStore } from "../lib/store";
-import type { FileEntry, Kind, Node } from "../lib/types";
+import type { Advice, Explanation, FileEntry, Kind, Node } from "../lib/types";
 
 const KIND: Record<Kind, { label: string; color: string }> = {
   video: { label: "Videos", color: "#8b5cf6" },
@@ -17,6 +17,14 @@ const KIND: Record<Kind, { label: string; color: string }> = {
   audio: { label: "Audio", color: "#10b981" },
   document: { label: "Documents", color: "#06b6d4" },
   other: { label: "Everything else", color: "var(--c-faint)" },
+};
+
+const ADVICE: Record<Advice, { label: string; tone: Tone }> = {
+  safe_to_delete: { label: "Safe to delete", tone: "safe" },
+  use_the_app: { label: "Manage in the app", tone: "info" },
+  leave_it: { label: "Leave it", tone: "danger" },
+  yours: { label: "Your files", tone: "warn" },
+  check_first: { label: "Check first", tone: "warn" },
 };
 
 // Colours for the "what's inside" breakdown in the side panel.
@@ -346,9 +354,13 @@ export default function LargeFiles() {
 /** Details of the highlighted folder or file: size, share, and what's inside. */
 function FolderPanel({ node, share, home, selected, onOpen, onSelect }: { node: Node | null; share: number; home: string | null; selected: boolean; onOpen: () => void; onSelect: (on: boolean) => void }) {
   const [inside, setInside] = useState<Node[] | null>(null);
+  const [about, setAbout] = useState<Explanation | null>(null);
   useEffect(() => {
     setInside(null);
-    if (node?.is_dir) api.bigfilesChildren(node.path).then(setInside).catch(() => setInside([]));
+    setAbout(null);
+    if (!node) return;
+    if (node.is_dir) api.bigfilesChildren(node.path).then(setInside).catch(() => setInside([]));
+    api.folderExplain(node.path).then(setAbout).catch(() => {});
   }, [node]);
 
   if (!node)
@@ -381,6 +393,17 @@ function FolderPanel({ node, share, home, selected, onOpen, onSelect }: { node: 
       <div className="selectable mt-2 truncate font-mono text-[11px] text-faint" title={node.path}>
         {tildify(node.path, home)}
       </div>
+
+      {about && (
+        <div className="mt-4 rounded-[12px] border border-line bg-ink/[0.025] p-3">
+          <div className="mb-1 flex flex-wrap items-center gap-2">
+            <span className="text-[12px] font-semibold text-muted">What is this?</span>
+            <Badge tone={ADVICE[about.advice].tone}>{ADVICE[about.advice].label}</Badge>
+          </div>
+          <div className="text-[13px] font-semibold">{about.title}</div>
+          <p className="mt-0.5 text-[12px] leading-relaxed text-muted">{about.text}</p>
+        </div>
+      )}
 
       {node.is_dir && (
         <div className="mt-4">

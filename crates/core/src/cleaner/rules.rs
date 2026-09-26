@@ -24,6 +24,9 @@ pub enum Safety {
     Review,
     /// We only measure it; freeing it needs a tool command or admin rights.
     ReportOnly,
+    /// System-owned (simulator runtimes): removable, but macOS asks for the
+    /// admin password. Never pre-selected; always permanent.
+    NeedsPassword,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -32,12 +35,15 @@ pub enum Target {
     Dir(&'static str),
     /// Remove each entry inside the folder, keeping the folder.
     Contents(&'static str),
+    /// Remove the entries inside the folder whose name starts with the prefix
+    /// (e.g. only `AndroidStudio*` inside `~/Library/Caches/Google`).
+    Prefixed(&'static str, &'static str),
 }
 
 impl Target {
     pub fn raw(&self) -> &'static str {
         match self {
-            Target::Dir(p) | Target::Contents(p) => p,
+            Target::Dir(p) | Target::Contents(p) | Target::Prefixed(p, _) => p,
         }
     }
 }
@@ -112,12 +118,12 @@ pub fn catalog() -> Vec<Rule> {
         rule!("simulator-caches", "Simulator caches", Xcode, Safe, MAC,
             [Contents("~/Library/Developer/CoreSimulator/Caches")],
             "Dyld and other caches the simulator rebuilds."),
-        rule!("simulator-runtimes", "Simulator runtimes (iOS versions)", Xcode, ReportOnly, MAC,
+        // Volumes/ holds mounts of the Images/ disk images, so it isn't counted.
+        rule!("simulator-runtimes", "Simulator runtimes (iOS versions)", Xcode, NeedsPassword, MAC,
             [Contents("/Library/Developer/CoreSimulator/Images"),
-             Contents("/Library/Developer/CoreSimulator/Volumes"),
              Contents("/Library/Developer/CoreSimulator/Profiles/Runtimes")],
-            "Downloaded iOS/watchOS runtimes, several GB each. System-owned, so remove them from Xcode → Settings → Platforms, or with the command below.",
-            cmd = "xcrun simctl runtime list   # then: xcrun simctl runtime delete <id>"),
+            "Downloaded iOS/watchOS runtimes, several GB each. They belong to macOS, so it asks for your password to remove them. Xcode downloads one again if you need it.",
+            permanent = true),
         // -------------------------------------------------------------- Android
         rule!("gradle-caches", "Gradle caches", Android, Safe, ALL,
             [Dir("~/.gradle/caches")],
@@ -213,8 +219,8 @@ pub fn catalog() -> Vec<Rule> {
              Contents("~/Library/Application Support/Cursor/logs")],
             "Editor caches and logs. Quit the editor first."),
         rule!("jetbrains", "JetBrains / Android Studio caches", Tools, Safe, MAC,
-            [Contents("~/Library/Caches/JetBrains"), Contents("~/Library/Caches/Google"),
-             Contents("~/Library/Logs/JetBrains"), Contents("~/Library/Logs/Google")],
+            [Contents("~/Library/Caches/JetBrains"), Prefixed("~/Library/Caches/Google", "AndroidStudio"),
+             Contents("~/Library/Logs/JetBrains"), Prefixed("~/Library/Logs/Google", "AndroidStudio")],
             "IDE indexes and logs. The IDE re-indexes on next open."),
         rule!("docker", "Docker disk image", Tools, ReportOnly, MAC,
             [Dir("~/Library/Containers/com.docker.docker/Data/vms")],
