@@ -1,4 +1,4 @@
-import { Archive, Bug, CircleAlert, CircleCheck, CircleHelp, Wrench, ExternalLink, FileCode2, GitBranch, Info, KeyRound, Package, Power, RotateCcw, ShieldAlert, ShieldCheck, StopCircle, SquareTerminal, type LucideIcon } from "lucide-react";
+import { Archive, Bug, Copy, CircleAlert, CircleCheck, CircleHelp, Wrench, ExternalLink, FileCode2, GitBranch, Info, KeyRound, Package, Power, RotateCcw, ShieldAlert, ShieldCheck, StopCircle, SquareTerminal, type LucideIcon } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -7,6 +7,7 @@ import { api } from "../lib/api";
 import { ago, tildify } from "../lib/format";
 import { useStore } from "../lib/store";
 import type { Area, Finding, Fix, ProtectionCheck, QuarantineEntry, SecurityReport, Severity } from "../lib/types";
+import { platform, words } from "../lib/platform";
 
 const SEV: Record<Severity, { label: string; tone: Tone; color: string }> = {
   high: { label: "High", tone: "danger", color: "var(--c-danger)" },
@@ -127,7 +128,7 @@ export default function Security() {
         <Card>
           <Empty
             icon={<ShieldCheck className="size-7" aria-hidden />}
-            title="Check this Mac for developer-targeted malware"
+            title={`Check this ${words.computer} for developer-targeted malware`}
             action={
               <Button variant="primary" onClick={scan}>
                 Scan
@@ -271,7 +272,10 @@ export default function Security() {
 
 const FIX: Record<Fix, { what: string; command: string }> = {
   unset_global_hooks_path: { what: "Stop every repository from running the global hooks folder.", command: "git config --global --unset core.hooksPath" },
-  use_keychain_credentials: { what: "Store git passwords in the macOS Keychain instead of a plain text file.", command: "git config --global credential.helper osxkeychain" },
+  use_keychain_credentials:
+    platform === "windows"
+      ? { what: "Store git passwords in Windows Credential Manager instead of a plain text file.", command: "git config --global credential.helper manager" }
+      : { what: "Store git passwords in the macOS Keychain instead of a plain text file.", command: "git config --global credential.helper osxkeychain" },
 };
 
 const CHECK_STATE = {
@@ -283,10 +287,11 @@ const CHECK_STATE = {
 /** FileVault, Firewall and friends: read-only checks with a way to fix each. */
 function Protection({ checks }: { checks: ProtectionCheck[] }) {
   const off = checks.filter((c) => c.state !== "pass").length;
+  const [help, setHelp] = useState<ProtectionCheck | null>(null);
   return (
     <Card className="mb-4 p-4">
       <div className="mb-3 flex items-baseline justify-between px-1">
-        <h2 className="text-[15px] font-semibold">Mac protection</h2>
+        <h2 className="text-[15px] font-semibold">{words.os} protection</h2>
         <span className={cx("text-[12px] font-medium", off ? "text-warn-text" : "text-safe-text")}>
           {off ? `${off} to review` : "All protections on"}
         </span>
@@ -301,6 +306,11 @@ function Protection({ checks }: { checks: ProtectionCheck[] }) {
                 <div className="truncate text-[12.5px] font-semibold">{c.title}</div>
                 <div className="truncate text-[11px] text-muted">{c.state === "pass" ? c.about : c.how ?? c.about}</div>
               </div>
+              {c.state !== "pass" && !c.pane && c.how && (
+                <Button size="sm" variant={c.state === "fail" ? "primary" : "secondary"} onClick={() => setHelp(c)}>
+                  How to fix
+                </Button>
+              )}
               {c.state !== "pass" && c.pane && (
                 <Button size="sm" variant={c.state === "fail" ? "primary" : "secondary"} onClick={() => api.openSettings(c.pane!)}>
                   {c.state === "fail" ? "Fix" : "Check"}
@@ -310,7 +320,27 @@ function Protection({ checks }: { checks: ProtectionCheck[] }) {
           );
         })}
       </ul>
-      <p className="mt-2 px-1 text-[11px] text-faint">Fix opens the right page in System Settings. Mr.Clean never changes these for you.</p>
+      <p className="mt-2 px-1 text-[11px] text-faint">{words.os === "Linux" ? "Each item shows how to turn it on." : `Fix opens the right page in ${words.settingsApp}.`} Mr.Clean never changes these for you.</p>
+      <Modal
+        open={!!help}
+        title={help ? `Turn on ${help.title}` : ""}
+        onClose={() => setHelp(null)}
+        footer={
+          <>
+            {help?.how?.includes("Run: ") && (
+              <Button onClick={() => navigator.clipboard?.writeText(help.how!.split("Run: ").pop()!.trim())}>
+                <Copy className="size-3.5" aria-hidden /> Copy command
+              </Button>
+            )}
+            <Button variant="primary" onClick={() => setHelp(null)}>
+              Done
+            </Button>
+          </>
+        }
+      >
+        <p className="mb-2 text-muted">{help?.about}</p>
+        <p className="selectable">{help?.how}</p>
+      </Modal>
     </Card>
   );
 }
@@ -374,7 +404,7 @@ function FindingRow({ f, home, quarantined, onQuarantine, onFix }: { f: Finding;
             )}
             {f.path && (
               <Button size="sm" onClick={() => api.reveal(f.path!)}>
-                <ExternalLink className="size-3.5" aria-hidden /> Show in Finder
+                <ExternalLink className="size-3.5" aria-hidden /> Show in {words.fileManager}
               </Button>
             )}
             {f.fix && (

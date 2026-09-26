@@ -13,6 +13,18 @@ const toolUrls = Object.fromEntries(
 );
 const toolColors = colors as Record<string, string>;
 
+// Process and app names on Windows/Linux that map to a bundled logo.
+const ALIASES: Record<string, string> = {
+  nodejs: "nodedotjs",
+  node: "nodedotjs",
+  chrome: "googlechrome",
+  dockerdesktop: "docker",
+  intellijidea: "jetbrains",
+  idea64: "jetbrains",
+  studio64: "androidstudio",
+  gradledaemon: "gradle",
+};
+
 export const hasToolIcon = (slug: string) => slug in toolUrls;
 
 // App icons are read once per app and kept for the session.
@@ -51,7 +63,8 @@ export function AppIcon({ name, bundle, app, tool, size = 32, className }: { nam
   if (src) return <img src={src} alt="" className={cx("shrink-0", className)} style={box} draggable={false} />;
 
   // Known apps without a readable icon fall back to their brand logo.
-  const slug = tool ?? name.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const plain = name.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const slug = tool ?? ALIASES[plain] ?? plain;
   if (toolUrls[slug]) tool = slug;
   if (tool && toolUrls[tool]) {
     const color = toolColors[tool] === "#000000" ? "var(--c-ink)" : toolColors[tool];

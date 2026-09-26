@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import { Button, Card, Page, SoftTile, cx } from "../components/ui";
 import { api, inTauri, openFullDiskAccessSettings } from "../lib/api";
+import { platform, words } from "../lib/platform";
 import { useStore } from "../lib/store";
 import type { DeleteMode } from "../lib/types";
 
@@ -50,13 +51,14 @@ export default function Settings() {
       <div className="flex flex-col gap-4">
         <Section icon={Trash2} color="var(--c-accent)" title="When cleaning">
           <div className="flex gap-3">
-            {option("trash", "Move to Trash (recommended)", "Undo-able: put things back from the Trash. Empty the Trash to actually free the space.")}
+            {option("trash", `Move to ${words.trash} (recommended)`, `Undo-able: put things back from the ${words.trash}. Empty the ${words.trash} to actually free the space.`)}
             {option("permanent", "Delete permanently", "Frees space immediately. Can't be undone.")}
           </div>
         </Section>
 
-        <Section icon={HardDrive} color="var(--c-info)" title="Full Disk Access">
-          {fda ? (
+        {platform === "mac" && (
+          <Section icon={HardDrive} color="var(--c-info)" title="Full Disk Access">
+            {fda ? (
             <p className="flex items-center gap-2 text-[13px] text-safe-text">
               <CircleCheck className="size-4" /> Granted. Mr.Clean can see every cache folder.
             </p>
@@ -71,7 +73,8 @@ export default function Settings() {
               </Button>
             </>
           )}
-        </Section>
+          </Section>
+        )}
 
         <Section icon={ShieldAlert} color="var(--c-danger)" title="Security scanner data">
           <ul className="list-disc space-y-1 pl-5 text-[13px] text-muted">
@@ -86,7 +89,7 @@ export default function Settings() {
         </Section>
 
         <Section icon={Lock} color="var(--c-purple)" title="Privacy">
-          <p className="text-[13px] text-muted">Nothing is ever uploaded. No accounts, no tracking, no automatic updates. All scanning happens on this Mac.</p>
+          <p className="text-[13px] text-muted">Nothing is ever uploaded. No accounts, no tracking, no automatic updates. All scanning happens on this {words.computer}.</p>
         </Section>
       </div>
 

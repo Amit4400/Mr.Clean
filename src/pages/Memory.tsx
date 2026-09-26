@@ -8,6 +8,7 @@ import { api } from "../lib/api";
 import { bytes, percent } from "../lib/format";
 import { MEM_HISTORY, MEM_SAMPLE_MS, useStore } from "../lib/store";
 import type { AppGroup, DevKind, MemoryBreakdown, MemorySnapshot, ProcInfo } from "../lib/types";
+import { words } from "../lib/platform";
 
 const DEV_LABEL: Record<DevKind, string> = {
   gradle_daemon: "Gradle daemon",
@@ -95,6 +96,11 @@ export default function Memory() {
   };
 
   const used = parts ? parts.apps + parts.wired + parts.compressed : null;
+  // Windows doesn't report wired/compressed memory: show just "In use" and "Free".
+  const simple = !!parts && parts.wired === 0 && parts.compressed === 0;
+  const shownParts = simple
+    ? PARTS.filter((p) => p.key === "apps" || p.key === "free").map((p) => (p.key === "apps" ? { ...p, label: "In use" } : p))
+    : PARTS;
   const pressure = mem?.pressure ?? "normal";
   const minutes = Math.round((MEM_HISTORY * MEM_SAMPLE_MS) / 60000);
   const apps = (snap?.apps ?? []).slice(0, 8);
@@ -119,13 +125,13 @@ export default function Memory() {
               size={136}
               stroke={15}
               label="Memory usage"
-              parts={PARTS.map((p) => ({ label: p.label, value: parts?.[p.key] ?? 0, color: p.color }))}
+              parts={shownParts.map((p) => ({ label: p.label, value: parts?.[p.key] ?? 0, color: p.color }))}
             >
               <div className="text-[22px] font-bold leading-tight">{used !== null ? <AnimatedNumber value={used} format={bytes} /> : "—"}</div>
               <div className="text-[11.5px] text-muted">of {parts ? bytes(parts.total, 0) : "—"}</div>
             </Donut>
             <ul className="flex-1 space-y-2 text-[12.5px]">
-              {PARTS.map((p) => (
+              {shownParts.map((p) => (
                 <li key={p.key} className="flex items-center gap-2">
                   <span className="size-2.5 rounded-full" style={{ background: p.color }} />
                   <span className="flex-1 whitespace-nowrap text-muted">{p.label}</span>
@@ -235,7 +241,7 @@ export default function Memory() {
 
       <p className="mt-4 flex gap-2 px-1 text-[12px] text-faint">
         <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-        macOS keeps spare RAM filled with cache on purpose and frees it instantly, so "RAM booster" purges only slow your Mac down. Closing things you don't need is the real fix.
+        {words.os === "Mac" ? "macOS" : words.os} keeps spare RAM filled with cache on purpose and frees it instantly, so "RAM booster" purges only slow your {words.computer} down. Closing things you don't need is the real fix.
       </p>
     </Page>
   );

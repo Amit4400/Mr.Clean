@@ -7,6 +7,7 @@ import { ago, bytes, percent, sepOf, tildify } from "../lib/format";
 import { isProtected } from "../lib/paths";
 import { useScanProgress, useStore } from "../lib/store";
 import type { Advice, Explanation, FileEntry, Kind, Node } from "../lib/types";
+import { platform, words } from "../lib/platform";
 
 const KIND: Record<Kind, { label: string; color: string }> = {
   video: { label: "Videos", color: "#8b5cf6" },
@@ -183,7 +184,7 @@ export default function LargeFiles() {
               <span className="font-semibold">
                 {bytes(files.total_bytes)} in {files.file_count.toLocaleString()} files
               </span>
-              {files.unreadable > 0 && <span className="text-[11.5px] text-faint">{files.unreadable} folders couldn't be read — see Settings → Full Disk Access</span>}
+              {files.unreadable > 0 && <span className="text-[11.5px] text-faint">{files.unreadable} folders couldn't be read{platform === "mac" ? " — see Settings → Full Disk Access" : " (no permission)"}</span>}
             </div>
             <div className="flex h-3 overflow-hidden rounded-full bg-surface-2">
               {files.kinds.map((k) => (
@@ -333,7 +334,7 @@ export default function LargeFiles() {
               Cancel
             </Button>
             <Button variant="danger" busy={deleting} onClick={remove}>
-              {deleteMode === "trash" ? "Move to Trash" : "Delete permanently"}
+              {deleteMode === "trash" ? `Move to ${words.trash}` : "Delete permanently"}
             </Button>
           </>
         }
@@ -347,7 +348,7 @@ export default function LargeFiles() {
             </li>
           ))}
         </ul>
-        <p className="mt-3 text-[11.5px] text-faint">Protected locations (app data in ~/Library, .ssh, .git folders, system files) are refused automatically.</p>
+        <p className="mt-3 text-[11.5px] text-faint">Protected locations (app data folders, .ssh, .git folders, system files) are refused automatically.</p>
       </Modal>
     </Page>
   );
@@ -435,7 +436,7 @@ function FolderPanel({ node, share, home, selected, onOpen, onSelect }: { node: 
         </div>
       )}
 
-      {locked && <p className="mt-4 rounded-[10px] bg-warn-soft px-3 py-2 text-[12px] text-warn-text">Protected: apps or macOS need this, so Mr.Clean won't remove it.</p>}
+      {locked && <p className="mt-4 rounded-[10px] bg-warn-soft px-3 py-2 text-[12px] text-warn-text">Protected: apps or {words.os === "Mac" ? "macOS" : words.os} need this, so Mr.Clean won't remove it.</p>}
 
       <div className="mt-4 flex flex-col gap-2">
         {node.is_dir && (
@@ -448,7 +449,7 @@ function FolderPanel({ node, share, home, selected, onOpen, onSelect }: { node: 
         )}
         <div className="flex gap-2">
           <Button className="flex-1" onClick={() => api.reveal(node.path)}>
-            <ExternalLink className="size-3.5" aria-hidden /> Show in Finder
+            <ExternalLink className="size-3.5" aria-hidden /> Show in {words.fileManager}
           </Button>
           {!locked && (
             <Button className="flex-1" variant={selected ? "danger" : "secondary"} onClick={() => onSelect(!selected)}>
@@ -475,7 +476,7 @@ function FileRow({ f, home, checked, onToggle }: { f: FileEntry; home: string | 
       <Badge>{KIND[f.kind].label}</Badge>
       <span className="w-28 text-right text-[11.5px] text-faint">{ago(f.modified)}</span>
       <button
-        title="Show in Finder"
+        title={`Show in ${words.fileManager}`}
         className="cursor-pointer rounded p-1 text-faint opacity-0 transition hover:bg-ink/[0.05] hover:text-ink group-hover:opacity-100"
         onClick={() => api.reveal(f.path)}
       >

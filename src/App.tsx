@@ -10,6 +10,7 @@ import Memory from "./pages/Memory";
 import Overview from "./pages/Overview";
 import Security from "./pages/Security";
 import Settings from "./pages/Settings";
+import { words } from "./lib/platform";
 
 const NAV: { id: Page; label: string; icon: LucideIcon }[] = [
   { id: "overview", label: "Overview", icon: House },
@@ -87,7 +88,7 @@ function Shell() {
           </span>
           <div data-tauri-drag-region>
             <div className="text-[18px] font-bold leading-tight tracking-[-0.01em]">Mr.Clean</div>
-            <div className="whitespace-nowrap text-[11px] text-muted">Keep your Mac fast &amp; safe</div>
+            <div className="whitespace-nowrap text-[11px] text-muted">Keep your {words.computer} fast &amp; safe</div>
           </div>
         </div>
         {/* One glass panel holds every destination, Settings included. */}

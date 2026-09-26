@@ -155,6 +155,104 @@ pub struct DeviceInfo {
     /// "macOS Sonoma 14.5", "Ubuntu 24.04"…
     pub os_label: String,
     pub kind: DeviceKind,
+    pub os: crate::env::Os,
+}
+
+/// Values firmware vendors leave in unused model fields.
+fn junk(s: &str) -> bool {
+    let l = s.trim().to_ascii_lowercase();
+    l.is_empty()
+        || [
+            "to be filled",
+            "system product name",
+            "system manufacturer",
+            "default string",
+            "not applicable",
+            "none",
+            "o.e.m",
+            "type1",
+            "unknown",
+        ]
+        .iter()
+        .any(|j| l.contains(j))
+}
+
+/// A part number like "20XW0024US": no lowercase, no spaces, has digits.
+fn looks_like_code(s: &str) -> bool {
+    !s.contains(' ') && s.chars().any(|c| c.is_ascii_digit()) && !s.chars().any(|c| c.is_ascii_lowercase())
+}
+
+fn nice_vendor(v: &str) -> String {
+    let v = v
+        .trim()
+        .trim_end_matches(" Inc.")
+        .trim_end_matches(" Inc")
+        .trim_end_matches(", Inc.");
+    match v.to_ascii_uppercase().as_str() {
+        "LENOVO" => "Lenovo".into(),
+        "HP" | "HEWLETT-PACKARD" => "HP".into(),
+        "DELL" => "Dell".into(),
+        "ASUSTEK COMPUTER" | "ASUSTEK COMPUTER INC." => "ASUS".into(),
+        "MICRO-STAR INTERNATIONAL CO., LTD." => "MSI".into(),
+        "MICROSOFT CORPORATION" => "Microsoft".into(),
+        _ => v.to_string(),
+    }
+}
+
+/// A friendly PC name from firmware fields, e.g. ("LENOVO", ["20XW0024US",
+/// "ThinkPad X1 Carbon Gen 9"]) → "Lenovo ThinkPad X1 Carbon Gen 9".
+pub fn pc_name(vendor: &str, candidates: &[&str], fallback: &str) -> String {
+    let model = candidates
+        .iter()
+        .map(|c| c.trim())
+        .find(|c| !junk(c) && !looks_like_code(c));
+    match model {
+        Some(m) => {
+            let v = if junk(vendor) {
+                String::new()
+            } else {
+                nice_vendor(vendor)
+            };
+            if v.is_empty() || m.to_ascii_lowercase().starts_with(&v.to_ascii_lowercase()) {
+                m.to_string()
+            } else {
+                format!("{v} {m}")
+            }
+        }
+        None => fallback.to_string(),
+    }
+}
+
+/// SMBIOS chassis types: 8–10, 14, 31, 32 are portables; 35/36 mini PCs.
+pub fn kind_from_chassis(types: &str, has_battery: bool) -> DeviceKind {
+    let nums: Vec<u32> = types
+        .split([',', ' ', '\n'])
+        .filter_map(|t| t.trim().parse().ok())
+        .collect();
+    if nums.iter().any(|n| matches!(n, 8 | 9 | 10 | 14 | 31 | 32)) || (nums.is_empty() && has_battery) {
+        DeviceKind::Laptop
+    } else if nums.iter().any(|n| matches!(n, 35 | 36)) {
+        DeviceKind::Mini
+    } else {
+        DeviceKind::Desktop
+    }
+}
+
+/// `PRETTY_NAME` from /etc/os-release.
+pub fn parse_os_release(text: &str) -> Option<String> {
+    text.lines()
+        .find_map(|l| l.strip_prefix("PRETTY_NAME="))
+        .map(|v| v.trim().trim_matches('"').to_string())
+        .filter(|v| !v.is_empty())
+}
+
+/// Windows 11 still reports itself as "Windows 10" in some places; builds
+/// from 22000 on are Windows 11.
+pub fn windows_label(long: &str, build: Option<u32>) -> String {
+    match build {
+        Some(b) if b >= 22000 && long.contains("Windows 10") => long.replace("Windows 10", "Windows 11"),
+        _ => long.to_string(),
+    }
 }
 
 /// macOS marketing name for a major version.
@@ -227,23 +325,61 @@ pub fn device(sys: &System) -> DeviceInfo {
             chip: if chip.is_empty() { cpu } else { chip },
             memory_bytes: sys.total_memory(),
             os_label,
+            os: crate::env::Os::Mac,
         };
     }
-    let laptop = std::path::Path::new("/sys/class/power_supply/BAT0").exists()
-        || std::path::Path::new("/sys/class/power_supply/BAT1").exists();
-    let family = if cfg!(windows) { "Windows" } else { "Linux" };
+    if cfg!(windows) {
+        let out = run(
+            "powershell",
+            &[
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                "$c=Get-CimInstance Win32_ComputerSystem; $e=Get-CimInstance Win32_SystemEnclosure; $b=@(Get-CimInstance Win32_Battery).Count; \"$($c.Manufacturer)|$($c.Model)|$($c.SystemFamily)|$($e.ChassisTypes -join ',')|$b\"",
+            ],
+        )
+        .unwrap_or_default();
+        let f: Vec<&str> = out.trim().split('|').collect();
+        let get = |i: usize| f.get(i).copied().unwrap_or("");
+        let kind = kind_from_chassis(get(3), get(4).trim().parse::<u32>().unwrap_or(0) > 0);
+        let fallback = if kind == DeviceKind::Laptop {
+            "Windows laptop"
+        } else {
+            "Windows PC"
+        };
+        let long = System::long_os_version().unwrap_or_else(|| "Windows".into());
+        let build = System::kernel_version().and_then(|k| k.split('.').next_back().and_then(|b| b.parse().ok()));
+        return DeviceInfo {
+            name: pc_name(get(0), &[get(1), get(2)], fallback),
+            chip: cpu,
+            memory_bytes: sys.total_memory(),
+            os_label: windows_label(&long, build),
+            kind,
+            os: crate::env::Os::Windows,
+        };
+    }
+    let dmi = |f: &str| std::fs::read_to_string(format!("/sys/class/dmi/id/{f}")).unwrap_or_default();
+    let has_battery = std::fs::read_dir("/sys/class/power_supply")
+        .map(|rd| rd.flatten().any(|e| e.file_name().to_string_lossy().starts_with("BAT")))
+        .unwrap_or(false);
+    let kind = kind_from_chassis(&dmi("chassis_type"), has_battery);
+    let fallback = if kind == DeviceKind::Laptop {
+        "Linux laptop"
+    } else {
+        "Linux PC"
+    };
+    let (name_f, family, version) = (dmi("product_name"), dmi("product_family"), dmi("product_version"));
     DeviceInfo {
-        name: format!("{family} {}", if laptop { "laptop" } else { "PC" }),
+        name: pc_name(&dmi("sys_vendor"), &[&name_f, &family, &version], fallback),
         chip: cpu,
         memory_bytes: sys.total_memory(),
-        os_label: System::long_os_version()
-            .or_else(System::name)
-            .unwrap_or_else(|| family.into()),
-        kind: if laptop {
-            DeviceKind::Laptop
-        } else {
-            DeviceKind::Desktop
-        },
+        os_label: std::fs::read_to_string("/etc/os-release")
+            .ok()
+            .and_then(|t| parse_os_release(&t))
+            .or_else(System::long_os_version)
+            .unwrap_or_else(|| "Linux".into()),
+        kind,
+        os: crate::env::Os::Linux,
     }
 }
 
@@ -286,5 +422,40 @@ mod tests {
         let i = info(&sys);
         assert!(i.memory.total_bytes > 0);
         assert!(i.cpu_cores > 0);
+    }
+
+    #[test]
+    fn pc_names_and_kinds() {
+        assert_eq!(
+            pc_name("LENOVO", &["20XW0024US", "ThinkPad X1 Carbon Gen 9"], "PC"),
+            "Lenovo ThinkPad X1 Carbon Gen 9"
+        );
+        assert_eq!(pc_name("Dell Inc.", &["XPS 13 9310", "XPS"], "PC"), "Dell XPS 13 9310");
+        assert_eq!(
+            pc_name("HP", &["HP EliteBook 840 G8 Notebook PC"], "PC"),
+            "HP EliteBook 840 G8 Notebook PC"
+        );
+        assert_eq!(
+            pc_name(
+                "System manufacturer",
+                &["System Product Name", "To be filled by O.E.M."],
+                "Windows PC"
+            ),
+            "Windows PC"
+        );
+        assert_eq!(
+            pc_name("QEMU", &["Standard PC (Q35 + ICH9, 2009)"], "Linux PC"),
+            "QEMU Standard PC (Q35 + ICH9, 2009)"
+        );
+        assert_eq!(kind_from_chassis("10", false), DeviceKind::Laptop);
+        assert_eq!(kind_from_chassis("3", true), DeviceKind::Desktop);
+        assert_eq!(kind_from_chassis("", true), DeviceKind::Laptop);
+        assert_eq!(kind_from_chassis("35", false), DeviceKind::Mini);
+        assert_eq!(
+            parse_os_release("NAME=\"Ubuntu\"\nPRETTY_NAME=\"Ubuntu 24.04.1 LTS\"\n").as_deref(),
+            Some("Ubuntu 24.04.1 LTS")
+        );
+        assert_eq!(windows_label("Windows 10 Pro", Some(22631)), "Windows 11 Pro");
+        assert_eq!(windows_label("Windows 10 Pro", Some(19045)), "Windows 10 Pro");
     }
 }
