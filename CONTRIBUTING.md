@@ -56,7 +56,7 @@ Changing a workflow? Pin third-party actions to a full commit SHA with a version
 | CodeQL | static security analysis for Rust, TypeScript and GitHub Actions |
 | Dependency review / cargo-deny / npm audit | blocks known-vulnerable or badly licensed dependencies |
 | Secret scan | gitleaks checks that no tokens or keys are committed |
-| Build macOS app | builds the `.dmg`, so reviewers can install your change |
+| Build macOS app / Linux app / Windows app | build the `.dmg`, `.deb`/`.AppImage` and `.msi`/`.exe`, so reviewers can install your change |
 
 PRs from forks need a maintainer's approval before CI runs, which stops untrusted code from running automatically.
 

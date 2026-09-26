@@ -373,7 +373,10 @@ mod tests {
         assert_eq!(jb.len(), 1);
         assert!(jb[0].ends_with("AndroidStudio2024.1"));
         let caches = names("user-caches");
-        assert!(caches.iter().any(|p| p.ends_with("Google/Chrome")), "{caches:?}");
+        assert!(
+            caches.iter().any(|p| p.replace('\\', "/").ends_with("Google/Chrome")),
+            "{caches:?}"
+        );
         assert!(!caches.iter().any(|p| p.contains("AndroidStudio")));
     }
 

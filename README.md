@@ -1,8 +1,8 @@
 # Mr.Clean
 
-A small desktop app that keeps developer Macs fast and safe. It cleans out the junk that normal cleaners miss, shows you what's filling your disk, looks for malware that targets developers, and helps you free up RAM.
+A small desktop app that keeps developer Macs and PCs fast and safe. It cleans out the junk that normal cleaners miss, shows you what's filling your disk, looks for malware that targets developers, and helps you free up RAM.
 
-Built with [Tauri 2](https://tauri.app): a Rust core does all the scanning, and a React UI sits on top. The installer is about 10 MB and the app uses little memory, so it runs well on an 8 GB MacBook. macOS comes first; Linux already builds, and Windows is planned.
+Built with [Tauri 2](https://tauri.app): a Rust core does all the scanning, and a React UI sits on top. The installer is about 10 MB and the app uses little memory, so it runs well on an 8 GB MacBook. It runs on macOS, Windows 10/11 and Linux (Ubuntu 22.04 or newer).
 
 ## Features
 
@@ -21,14 +21,25 @@ Built with [Tauri 2](https://tauri.app): a Rust core does all the scanning, and 
 - Rules are labelled **Safe** (rebuilt automatically, pre-selected), **Review** (emulators, archives, backups; never pre-selected) or **Info only** (e.g. Docker, which needs its own command such as `docker system prune`).
 - **The security scanner never deletes anything.** It only reports. You can move a flagged file to quarantine (`~/.mrclean/quarantine`, with execute permission removed) and restore it with one click.
 - **Only your own, non-system processes can be quit.** macOS GUI apps get a normal "quit" so they can prompt you to save.
-- Everything runs on your Mac. Nothing is uploaded.
+- On Windows the guard also refuses `C:\Windows`, Program Files, ProgramData, saved credentials and app data (except Temp and crash dumps).
+- Everything runs on your computer. Nothing is uploaded.
 
 ## Install (for teammates)
 
-1. Download `Mr.Clean_x.y.z_universal.dmg` from the repo's **Actions → Build → Artifacts** (or from a GitHub Release).
-2. Open the dmg and drag **Mr.Clean** into **Applications**.
-3. The first time, **right-click the app → Open → Open**. Without an Apple Developer ID the app is unsigned, so macOS shows an "unidentified developer" warning.
-4. Recommended: grant **Full Disk Access** (Settings page → *Open Privacy settings* → turn on Mr.Clean → restart the app) so every cache folder is visible.
+Download the file for your system from the repo's **Actions → Build → Artifacts** (or from a GitHub Release).
+
+**macOS** (`Mr.Clean-macOS`)
+1. Open `Mr.Clean_x.y.z_universal.dmg` and drag **Mr.Clean** into **Applications**.
+2. The first time, **right-click the app → Open → Open**. Without an Apple Developer ID the app is unsigned, so macOS shows an "unidentified developer" warning.
+3. Recommended: grant **Full Disk Access** (Settings page → *Open Privacy settings* → turn on Mr.Clean → restart the app) so every cache folder is visible.
+
+**Windows 10/11** (`Mr.Clean-Windows`)
+1. Run the `.exe` installer (or the `.msi`).
+2. The app isn't code-signed yet, so Windows shows "Windows protected your PC". Click **More info → Run anyway**.
+
+**Linux** (`Mr.Clean-Linux`, Ubuntu 22.04 or newer)
+- Ubuntu/Debian: `sudo apt install ./Mr.Clean_x.y.z_amd64.deb`
+- Any distro: `chmod +x Mr.Clean_x.y.z_amd64.AppImage` and run it.
 
 ## Develop
 
@@ -65,7 +76,7 @@ crates/core/          all logic, no UI (unit-tested)
 src-tauri/            Tauri app: thin command wrappers around the core
 src/                  React + TypeScript + Tailwind UI
 e2e/                  Playwright end-to-end tests (mock backend)
-.github/workflows/    ci.yml (tests), security.yml (CodeQL, self-scan, audits), build.yml (.dmg)
+.github/workflows/    ci.yml (tests), security.yml (CodeQL, self-scan, audits), build.yml (.dmg, .deb/.AppImage, .msi/.exe)
 ```
 
 ### Adding a cache location
@@ -78,7 +89,7 @@ Add a `rule!(…)` entry in `crates/core/src/cleaner/rules.rs`. Use `Dir` to del
 
 ## Releasing
 
-Push a tag like `v0.2.0`. CI builds the universal `.dmg` and attaches it to a GitHub Release. To get rid of the "unidentified developer" warning, add an Apple Developer ID certificate and notarization secrets to the workflow ([Tauri guide](https://v2.tauri.app/distribute/sign/macos/)).
+Push a tag like `v0.2.0`. CI builds the universal `.dmg`, the Linux `.deb`/`.AppImage` and the Windows `.msi`/`.exe`, and attaches them to a GitHub Release. Windows shows a SmartScreen warning until the installer is signed with a code-signing certificate ([Tauri guide](https://v2.tauri.app/distribute/sign/windows/)). To get rid of the "unidentified developer" warning, add an Apple Developer ID certificate and notarization secrets to the workflow ([Tauri guide](https://v2.tauri.app/distribute/sign/macos/)).
 
 ## Contributing & security
 

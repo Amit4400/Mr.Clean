@@ -240,7 +240,7 @@ export default function Security() {
       )}
 
       <p className="mt-6 text-[11.5px] text-faint">
-        Mr.Clean spots known developer-targeted threats and suspicious patterns. It complements, but doesn't replace, a full antivirus such as XProtect or your company's endpoint
+        Mr.Clean spots known developer-targeted threats and suspicious patterns. It complements, but doesn't replace, a full antivirus such as {platform === "windows" ? "Microsoft Defender" : platform === "linux" ? "ClamAV" : "XProtect"} or your company's endpoint
         protection.
       </p>
       <Modal

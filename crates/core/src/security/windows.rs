@@ -263,7 +263,7 @@ fn scheduled_tasks() -> Vec<Finding> {
 
 pub fn scan(env: &Env) -> Vec<Finding> {
     let mut out = startup_folder(env);
-    if cfg!(windows) && env.home.starts_with(dirs_home()) {
+    if cfg!(windows) && env.home == dirs_home() {
         out.extend(run_keys());
         out.extend(scheduled_tasks());
     }
