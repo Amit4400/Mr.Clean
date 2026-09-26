@@ -125,6 +125,16 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           path: dist-release
+      - name: Collect installers
+        # Artifacts keep their folders (Windows has msi/ and nsis/), so gather every installer into one flat folder.
+        run: |
+          mkdir -p release-files
+          find dist-release -type f \( -name '*.dmg' -o -name '*.exe' -o -name '*.msi' -o -name '*.deb' -o -name '*.AppImage' \) \
+            -exec cp {} release-files/ \;
+          ls -l release-files
+          for ext in dmg exe msi deb AppImage; do
+            compgen -G "release-files/*.$ext" > /dev/null || { echo "::error::No .$ext installer was built"; exit 1; }
+          done
       - name: Publish release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
@@ -140,11 +150,6 @@ jobs:
             | Ubuntu / Debian | `Mr.Clean_*_amd64.deb` |
             | Other Linux | `Mr.Clean_*_amd64.AppImage` (bigger: it brings its own web engine) |
 
-            The apps aren't code-signed yet. On a Mac, right-click the app → **Open** the first time. On Windows, click **More info → Run anyway**.
-          files: |
-            dist-release/Mr.Clean-macOS/*.dmg
-            dist-release/Mr.Clean-Windows/*.exe
-            dist-release/Mr.Clean-Windows/*.msi
-            dist-release/Mr.Clean-Linux-deb/*.deb
-            dist-release/Mr.Clean-Linux-AppImage/*.AppImage
+            The apps aren't code-signed yet. On a Mac, open it once, then go to **System Settings → Privacy & Security → Open Anyway**. On Windows, click **More info → Run anyway**.
+          files: release-files/*
           fail_on_unmatched_files: true

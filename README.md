@@ -56,7 +56,7 @@ Mac and Windows use the web engine built into the system, so their apps are smal
 
 **macOS**
 1. Open the `.dmg` and drag **Mr.Clean** into **Applications**.
-2. The first time, **right-click the app → Open → Open**. The app isn't signed with an Apple Developer ID yet, so macOS warns about an "unidentified developer".
+2. The app isn't signed with an Apple Developer ID yet, so the first time macOS says it can't be opened. Click **Done**, then go to **System Settings → Privacy & Security** and click **Open Anyway**.
 3. Recommended: grant **Full Disk Access** (Settings page → *Open Privacy settings* → turn on Mr.Clean → restart the app) so every cache folder is visible.
 
 **Windows 10/11**
