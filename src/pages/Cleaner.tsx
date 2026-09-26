@@ -332,7 +332,7 @@ function RuleRow({
           <div className="truncate text-[12px] text-muted">{r.note && r.rule.category !== "xcode" ? r.note : r.rule.description}</div>
         </div>
         <div className="tabular w-20 text-right text-[13.5px] font-semibold">{bytes(r.total_bytes)}</div>
-        <span className="flex w-[72px] justify-center">
+        <span className="flex w-[112px] justify-center">
           <Badge tone={SAFETY[r.rule.safety].tone}>{SAFETY[r.rule.safety].label}</Badge>
         </span>
         <ChevronRight className={cx("size-4 shrink-0 text-faint transition-transform duration-200", open && "rotate-90")} aria-hidden />
