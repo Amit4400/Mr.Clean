@@ -1,0 +1,21 @@
+[package]
+name = "mrclean-core"
+description = "Scanning, cleaning and safety logic for Mr.Clean (no UI)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sysinfo = "0.37"
+jwalk = "0.8"
+trash = "5"
+plist = "1"
+regex = "1"
+dirs = "6"
+thiserror = "2"
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
+
+[dev-dependencies]
+tempfile = "3"

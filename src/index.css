@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-bg: var(--c-bg);
+  --color-surface: var(--c-surface);
+  --color-surface-2: var(--c-surface-2);
+  --color-line: var(--c-line);
+  --color-ink: var(--c-ink);
+  --color-muted: var(--c-muted);
+  --color-faint: var(--c-faint);
+  --color-accent: var(--c-accent);
+  --color-accent-ink: var(--c-accent-ink);
+  --color-accent-soft: var(--c-accent-soft);
+  --color-danger: var(--c-danger);
+  --color-danger-soft: var(--c-danger-soft);
+  --color-warn: var(--c-warn);
+  --color-warn-soft: var(--c-warn-soft);
+  --color-info: var(--c-info);
+  --color-info-soft: var(--c-info-soft);
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Inter, Roboto, "Helvetica Neue", sans-serif;
+  --font-mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+
+:root {
+  --c-bg: #f4f5f7;
+  --c-surface: #ffffff;
+  --c-surface-2: #f8f9fa;
+  --c-line: #e4e6ea;
+  --c-ink: #16181d;
+  --c-muted: #5b616e;
+  --c-faint: #8b919c;
+  --c-accent: #0d9488;
+  --c-accent-ink: #ffffff;
+  --c-accent-soft: #ccfbf1;
+  --c-danger: #dc2626;
+  --c-danger-soft: #fee2e2;
+  --c-warn: #d97706;
+  --c-warn-soft: #fef3c7;
+  --c-info: #2563eb;
+  --c-info-soft: #dbeafe;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --c-bg: #111317;
+    --c-surface: #1a1d22;
+    --c-surface-2: #20242a;
+    --c-line: #2c3139;
+    --c-ink: #eceef1;
+    --c-muted: #a3a9b4;
+    --c-faint: #6f7682;
+    --c-accent: #2dd4bf;
+    --c-accent-ink: #062b27;
+    --c-accent-soft: #123a36;
+    --c-danger: #f87171;
+    --c-danger-soft: #3b1a1a;
+    --c-warn: #fbbf24;
+    --c-warn-soft: #3a2c10;
+    --c-info: #60a5fa;
+    --c-info-soft: #172a45;
+    color-scheme: dark;
+  }
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--c-bg);
+  color: var(--c-ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  cursor: default;
+}
+
+.selectable {
+  user-select: text;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--c-line);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
