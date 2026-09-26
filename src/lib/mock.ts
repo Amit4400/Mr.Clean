@@ -152,9 +152,10 @@ export async function mock<T>(cmd: string, args?: Record<string, unknown>): Prom
     }
     case "node_modules_find":
       return r([
-        { path: `${HOME}/projects/old-landing/node_modules`, project: `${HOME}/projects/old-landing`, bytes: 812 * MB, last_touched: now - 220 * day, stale: true },
-        { path: `${HOME}/projects/rn-demo/node_modules`, project: `${HOME}/projects/rn-demo`, bytes: 1.4 * GB, last_touched: now - 95 * day, stale: true },
-        { path: `${HOME}/projects/shop/node_modules`, project: `${HOME}/projects/shop`, bytes: 690 * MB, last_touched: now - 2 * day, stale: false },
+        { path: `${HOME}/projects/old-landing/node_modules`, project: `${HOME}/projects/old-landing`, bytes: 812 * MB, last_touched: now - 220 * day, stale: true, in_cloud: false },
+        { path: `${HOME}/projects/rn-demo/node_modules`, project: `${HOME}/projects/rn-demo`, bytes: 1.4 * GB, last_touched: now - 95 * day, stale: true, in_cloud: false },
+        { path: `${HOME}/Documents/Cursor project/landing/node_modules`, project: `${HOME}/Documents/Cursor project/landing`, bytes: 0, last_touched: now - 16 * day, stale: false, in_cloud: true },
+        { path: `${HOME}/projects/shop/node_modules`, project: `${HOME}/projects/shop`, bytes: 690 * MB, last_touched: now - 2 * day, stale: false, in_cloud: false },
       ], 900);
     case "node_modules_remove":
     case "bigfiles_remove": return r(deleted(a.paths as string[]), 500);

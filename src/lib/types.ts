@@ -102,6 +102,7 @@ export interface NodeModulesHit {
   bytes: number;
   last_touched: number | null;
   stale: boolean;
+  in_cloud: boolean;
 }
 
 export type Kind = "video" | "image" | "audio" | "archive" | "disk_image" | "installer" | "document" | "other";

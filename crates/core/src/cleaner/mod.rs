@@ -84,17 +84,51 @@ pub fn xcode_installed(env: &Env) -> bool {
         .unwrap_or(false)
 }
 
+/// Entries of `dir` whose name starts with `prefix`.
+fn prefixed_entries(dir: &Path, prefix: &str) -> Vec<PathBuf> {
+    let Ok(rd) = std::fs::read_dir(dir) else { return vec![] };
+    rd.flatten()
+        .filter(|e| e.file_name().to_string_lossy().starts_with(prefix))
+        .map(|e| e.path())
+        .collect()
+}
+
 /// All expanded target paths of every rule, used to avoid double counting
 /// (e.g. ~/Library/Caches/Yarn belongs to "Yarn", not "App caches").
 fn all_targets(env: &Env, rules: &[Rule]) -> Vec<(&'static str, PathBuf)> {
-    rules
-        .iter()
-        .flat_map(|r| {
-            r.targets
-                .iter()
-                .filter_map(move |t| env.expand(t.raw()).map(|p| (r.id, p)))
-        })
-        .collect()
+    let mut out = Vec::new();
+    for r in rules {
+        for t in r.targets {
+            let Some(base) = env.expand(t.raw()) else { continue };
+            match t {
+                Target::Prefixed(_, prefix) => {
+                    out.extend(prefixed_entries(&base, prefix).into_iter().map(|p| (r.id, p)))
+                }
+                _ => out.push((r.id, base)),
+            }
+        }
+    }
+    out
+}
+
+/// Add `p` (found under this rule's `base`) unless a more specific rule owns
+/// it. If another rule owns something deeper inside `p`, add `p`'s other
+/// children instead, so e.g. App caches still lists `Caches/Google/Chrome`
+/// while Android Studio keeps `Caches/Google/AndroidStudio*`.
+fn push_unclaimed(p: PathBuf, base: &Path, rule_id: &str, owned: &[(&'static str, PathBuf)], out: &mut Vec<PathBuf>) {
+    let others = || owned.iter().filter(|(id, _)| *id != rule_id);
+    if others().any(|(_, o)| p.starts_with(o) && o.starts_with(base) && o != base) {
+        return;
+    }
+    if others().any(|(_, o)| o.starts_with(&p)) {
+        if let Ok(rd) = std::fs::read_dir(&p) {
+            for e in rd.flatten() {
+                push_unclaimed(e.path(), base, rule_id, owned, out);
+            }
+        }
+        return;
+    }
+    out.push(p);
 }
 
 /// Paths a rule would remove right now: the folder itself for `Dir`, its
@@ -111,11 +145,12 @@ fn rule_items(env: &Env, rule: &Rule, owned: &[(&'static str, PathBuf)]) -> Vec<
             Target::Contents(_) => {
                 let Ok(rd) = std::fs::read_dir(&base) else { continue };
                 for e in rd.flatten() {
-                    let p = e.path();
-                    let claimed = owned.iter().any(|(id, o)| *id != rule.id && o.starts_with(&p));
-                    if !claimed {
-                        out.push(p);
-                    }
+                    push_unclaimed(e.path(), &base, rule.id, owned, &mut out);
+                }
+            }
+            Target::Prefixed(_, prefix) => {
+                for p in prefixed_entries(&base, prefix) {
+                    push_unclaimed(p, &base, rule.id, owned, &mut out);
                 }
             }
         }
@@ -306,6 +341,28 @@ mod tests {
         assert!(r.removed.is_empty());
         assert_eq!(r.failed.len(), 1);
         assert!(h.join("Documents/keep.txt").exists());
+    }
+
+    #[test]
+    fn android_studio_rule_leaves_chrome_to_app_caches() {
+        let (_d, env) = fake_mac();
+        let h = env.home.clone();
+        write(&h.join("Library/Caches/Google/Chrome/Default/cache"), 30_000);
+        write(&h.join("Library/Caches/Google/AndroidStudio2024.1/index"), 20_000);
+        let s = scan(&env, &Cancel::new(), &Progress::default());
+        let names = |id: &str| -> Vec<String> {
+            s.rules
+                .iter()
+                .find(|r| r.rule.id == id)
+                .map(|r| r.items.iter().map(|i| i.path.clone()).collect())
+                .unwrap_or_default()
+        };
+        let jb = names("jetbrains");
+        assert_eq!(jb.len(), 1);
+        assert!(jb[0].ends_with("AndroidStudio2024.1"));
+        let caches = names("user-caches");
+        assert!(caches.iter().any(|p| p.ends_with("Google/Chrome")), "{caches:?}");
+        assert!(!caches.iter().any(|p| p.contains("AndroidStudio")));
     }
 
     #[test]

@@ -326,7 +326,7 @@ export function Modal({ open, title, children, footer, onClose }: { open: boolea
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-50 flex justify-center bg-black/25 px-6 pt-[52px]"
+          className="fixed inset-0 z-50 flex justify-center bg-black/35 px-6 pt-[52px] backdrop-blur-[3px]"
           onClick={onClose}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -337,7 +337,7 @@ export function Modal({ open, title, children, footer, onClose }: { open: boolea
             role="dialog"
             aria-modal="true"
             aria-label={title}
-            className="h-fit w-full max-w-[460px] overflow-hidden rounded-b-[12px] rounded-t-[4px] border border-line bg-surface shadow-[0_18px_50px_rgba(0,0,0,0.28)]"
+            className="h-fit w-full max-w-[460px] overflow-hidden rounded-[16px] border border-line bg-bg shadow-[0_24px_60px_rgba(0,0,0,0.35)]"
             onClick={(e) => e.stopPropagation()}
             initial={{ y: -24, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}

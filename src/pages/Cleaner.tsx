@@ -369,6 +369,9 @@ function RuleRow({
   );
 }
 
+const baseName = (p: string) => p.split("/").filter(Boolean).pop() ?? p;
+const parentOf = (p: string) => p.slice(0, p.replace(/\/+$/, "").lastIndexOf("/")) || "/";
+
 const AGES = [
   { value: 30, label: "30 days" },
   { value: 90, label: "90 days" },
@@ -406,7 +409,9 @@ function NodeModulesPanel() {
       setRemoving(false);
     }
   };
-  const list: NodeModulesHit[] = hits ?? [];
+  // Online-only iCloud copies use no space here, so there's nothing to free.
+  const list: NodeModulesHit[] = (hits ?? []).filter((h) => !h.in_cloud && h.bytes > 0);
+  const inCloud = (hits ?? []).filter((h) => h.in_cloud).length;
   const selBytes = list.filter((h) => sel.has(h.path)).reduce((a, h) => a + h.bytes, 0);
   const total = list.reduce((a, h) => a + h.bytes, 0);
 
@@ -438,7 +443,9 @@ function NodeModulesPanel() {
           <Package className="size-3.5" aria-hidden /> Find old node_modules
         </Button>
       ) : list.length === 0 ? (
-        <p className="py-4 text-center text-[12.5px] text-muted">No node_modules folders found in your projects.</p>
+        <p className="py-4 text-center text-[12.5px] text-muted">
+          {inCloud ? "Nothing to free: your node_modules folders are stored in iCloud, not on this Mac." : "No node_modules folders found in your projects."}
+        </p>
       ) : (
         <>
           <div className="mb-1 flex items-center justify-between text-[11.5px] text-faint">
@@ -466,11 +473,14 @@ function NodeModulesPanel() {
                 />
                 <FolderClosed className="size-4 shrink-0 fill-info/20 text-info" aria-hidden />
                 <div className="min-w-0 flex-1">
-                  <div className="selectable truncate text-[12.5px] font-medium" title={h.path}>
-                    {tildify(h.project, home)}
+                  <div className="selectable truncate text-[12.5px] font-semibold" title={h.path}>
+                    {baseName(h.project)}
+                  </div>
+                  <div className="selectable truncate text-[11px] text-faint" title={h.project}>
+                    {tildify(parentOf(h.project), home)}
                   </div>
                   <div className="text-[11px] text-faint">
-                    node_modules · {ago(h.last_touched)}
+                    {ago(h.last_touched)}
                     {h.stale && <span className="text-warn-text"> · old</span>}
                   </div>
                 </div>
@@ -478,6 +488,11 @@ function NodeModulesPanel() {
               </li>
             ))}
           </ul>
+          {inCloud > 0 && (
+            <p className="mt-2 text-[11px] text-faint">
+              {inCloud} more project{inCloud === 1 ? " is" : "s are"} stored in iCloud and {inCloud === 1 ? "doesn't" : "don't"} use space on this Mac.
+            </p>
+          )}
           <Button variant="danger" className="mt-3 w-full" disabled={sel.size === 0} busy={removing} onClick={remove}>
             <Trash2 className="size-3.5" aria-hidden /> Remove {sel.size > 0 ? bytes(selBytes) : "selected"}
           </Button>

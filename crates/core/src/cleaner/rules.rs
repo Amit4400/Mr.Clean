@@ -32,12 +32,15 @@ pub enum Target {
     Dir(&'static str),
     /// Remove each entry inside the folder, keeping the folder.
     Contents(&'static str),
+    /// Remove the entries inside the folder whose name starts with the prefix
+    /// (e.g. only `AndroidStudio*` inside `~/Library/Caches/Google`).
+    Prefixed(&'static str, &'static str),
 }
 
 impl Target {
     pub fn raw(&self) -> &'static str {
         match self {
-            Target::Dir(p) | Target::Contents(p) => p,
+            Target::Dir(p) | Target::Contents(p) | Target::Prefixed(p, _) => p,
         }
     }
 }
@@ -213,8 +216,8 @@ pub fn catalog() -> Vec<Rule> {
              Contents("~/Library/Application Support/Cursor/logs")],
             "Editor caches and logs. Quit the editor first."),
         rule!("jetbrains", "JetBrains / Android Studio caches", Tools, Safe, MAC,
-            [Contents("~/Library/Caches/JetBrains"), Contents("~/Library/Caches/Google"),
-             Contents("~/Library/Logs/JetBrains"), Contents("~/Library/Logs/Google")],
+            [Contents("~/Library/Caches/JetBrains"), Prefixed("~/Library/Caches/Google", "AndroidStudio"),
+             Contents("~/Library/Logs/JetBrains"), Prefixed("~/Library/Logs/Google", "AndroidStudio")],
             "IDE indexes and logs. The IDE re-indexes on next open."),
         rule!("docker", "Docker disk image", Tools, ReportOnly, MAC,
             [Dir("~/Library/Containers/com.docker.docker/Data/vms")],

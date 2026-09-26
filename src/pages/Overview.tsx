@@ -49,7 +49,7 @@ export default function Overview() {
   const threats = security ? security.counts.high + security.counts.medium : null;
   const bigFiles = files ? files.top_files.filter((f) => f.bytes >= BIG_FILE) : null;
   const bigBytes = bigFiles?.reduce((a, f) => a + f.bytes, 0) ?? null;
-  const staleModules = nodeModules?.filter((h) => h.stale) ?? null;
+  const staleModules = nodeModules?.filter((h) => h.stale && !h.in_cloud) ?? null;
   const moduleBytes = staleModules?.reduce((a, h) => a + h.bytes, 0) ?? null;
   const leftovers = memSnap?.dev_leftovers ?? null;
   const leftoverBytes = leftovers?.reduce((a, p) => a + p.memory_bytes, 0) ?? null;
