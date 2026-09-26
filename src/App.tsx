@@ -90,6 +90,7 @@ function Shell() {
             <div className="whitespace-nowrap text-[11px] text-muted">Keep your Mac fast &amp; safe</div>
           </div>
         </div>
+        {/* One glass panel holds every destination, Settings included. */}
         <nav aria-label="Main" className="glass flex flex-col gap-1 rounded-[16px] p-1.5">
           {NAV.map((n, i) => (
             <NavItem
@@ -108,10 +109,9 @@ function Shell() {
               }
             />
           ))}
-        </nav>
-        <div className="mt-auto">
+          <div className="mx-2 my-1 h-px bg-line" />
           <NavItem active={page === "settings"} label="Settings" icon={SettingsIcon} shortcut={`${mod},`} onClick={() => go("settings")} />
-        </div>
+        </nav>
       </aside>
 
       <main className="relative my-2.5 mr-2.5 flex-1 overflow-hidden rounded-[22px] border border-line bg-panel shadow-[0_10px_40px_-12px_rgba(15,23,42,0.18)]">

@@ -31,11 +31,11 @@ export default function Overview() {
 
   // Size the orb to the space left between the four stat bubbles.
   const stage = useRef<HTMLDivElement>(null);
-  const [orbSize, setOrbSize] = useState(360);
+  const [orbSize, setOrbSize] = useState(340);
   useEffect(() => {
     const el = stage.current;
     if (!el) return;
-    const ro = new ResizeObserver(([e]) => setOrbSize(Math.max(260, Math.min(380, e.contentRect.width - 130, e.contentRect.height))));
+    const ro = new ResizeObserver(([e]) => setOrbSize(Math.max(260, Math.min(360, e.contentRect.width - 130, e.contentRect.height))));
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
@@ -64,7 +64,7 @@ export default function Overview() {
   });
 
   return (
-    <motion.div className="mx-auto max-w-[1180px] px-8 pb-8 pt-7" variants={stagger} initial="hidden" animate="show">
+    <motion.div className="mx-auto max-w-[1180px] px-8 pb-6 pt-6" variants={stagger} initial="hidden" animate="show">
       {/* Header: greeting + dynamic headline, and the device card. */}
       <motion.div variants={rise} className="mb-2 grid grid-cols-[minmax(0,1fr)_minmax(0,440px)] items-start gap-6">
         <div data-tauri-drag-region className="pt-1">
@@ -99,7 +99,7 @@ export default function Overview() {
       <div className="grid grid-cols-[minmax(0,1fr)_440px] gap-6">
         {/* Left: the storage orb with the four headline numbers around it. */}
         <motion.div variants={rise} className="flex flex-col">
-          <div ref={stage} className="relative mx-auto h-[390px] w-full max-w-[640px]">
+          <div ref={stage} className="relative mx-auto h-[350px] w-full max-w-[640px]">
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
               <StorageOrb used={used} total={disk?.total_bytes ?? null} size={orbSize} />
             </div>
@@ -117,7 +117,7 @@ export default function Overview() {
           </div>
 
           <ScanButtons scanning={scanning} scanned={scanned} steps={scan} junk={cleaner?.total_bytes ?? null} onScan={scanEverything} onReview={() => go("clean")} />
-          <p className="mt-3 flex items-center justify-center gap-1.5 text-[11.5px] text-faint">
+          <p className="mt-2 flex items-center justify-center gap-1.5 text-[11.5px] text-faint">
             <Lock className="size-3" aria-hidden /> Everything runs locally on your Mac. Nothing is uploaded.
           </p>
         </motion.div>
@@ -185,9 +185,9 @@ export default function Overview() {
       </div>
 
       {/* Shortcuts into each tool. */}
-      <motion.div variants={rise} className="mt-6">
-        <Card className="@container p-5">
-          <div className="mb-4 flex items-start justify-between">
+      <motion.div variants={rise} className="mt-4">
+        <Card className="@container px-5 pb-4 pt-4">
+          <div className="mb-3.5 flex items-start justify-between">
             <div>
               <h2 className="text-[18px] font-semibold tracking-[-0.01em]">Quick actions</h2>
               <p className="text-[12.5px] text-muted">Common tasks to keep your Mac clean and fast.</p>
@@ -196,7 +196,7 @@ export default function Overview() {
               View all tools <ChevronRight className="size-3.5" aria-hidden />
             </button>
           </div>
-          <div className="grid grid-cols-2 gap-3 @5xl:grid-cols-4">
+          <div className="grid grid-cols-4 gap-3">
             <Quick icon={BrushCleaning} color="var(--c-accent)" title="Clean developer caches" detail="Remove Xcode, Android, npm and more." onClick={() => go("clean")} />
             <Quick icon={FolderClosed} color="var(--c-info)" title="Find large files" detail="Discover and remove big files and folders." onClick={() => go("files")} />
             <Quick icon={Cpu} color="var(--c-purple)" title="Free memory" detail="Quit dev processes using RAM." onClick={() => go("memory")} />
@@ -244,7 +244,7 @@ function Found({ icon, color, title, detail, value, action = "Review", highlight
   return (
     <button
       onClick={onClick}
-      className={cx("group flex w-full cursor-pointer items-center gap-3 rounded-[14px] px-2.5 py-3 text-left transition-colors", highlight ? "bg-accent-soft" : "hover:bg-ink/[0.035]")}
+      className={cx("group flex w-full cursor-pointer items-center gap-3 rounded-[14px] px-2.5 py-2.5 text-left transition-colors", highlight ? "bg-accent-soft" : "hover:bg-ink/[0.035]")}
     >
       <Tile icon={icon} color={color} size={42} />
       <span className="min-w-0 flex-1">
@@ -265,18 +265,23 @@ function Quick({ icon, color, title, detail, onClick }: { icon: LucideIcon; colo
       whileTap={{ scale: 0.98 }}
       transition={press}
       onClick={onClick}
-      className="flex cursor-pointer items-center gap-3 rounded-[14px] border p-3.5 text-left"
+      className="flex cursor-pointer items-center gap-3 rounded-[14px] border p-3 text-left @5xl:p-3.5"
       style={{
         borderColor: `color-mix(in srgb, ${color} 16%, transparent)`,
         background: `linear-gradient(135deg, color-mix(in srgb, ${color} 11%, transparent), color-mix(in srgb, ${color} 3%, transparent))`,
       }}
     >
-      <Tile icon={icon} color={color} size={46} />
+      <span className="@5xl:hidden">
+        <Tile icon={icon} color={color} size={38} />
+      </span>
+      <span className="hidden @5xl:block">
+        <Tile icon={icon} color={color} size={46} />
+      </span>
       <span className="min-w-0 flex-1">
         <span className="block text-[13.5px] font-semibold leading-snug">{title}</span>
         <span className="line-clamp-2 block text-[11.5px] leading-snug text-muted">{detail}</span>
       </span>
-      <span className="glass flex size-7 shrink-0 items-center justify-center rounded-full text-muted">
+      <span className="glass hidden size-7 shrink-0 items-center justify-center rounded-full text-muted @5xl:flex">
         <ChevronRight className="size-3.5" aria-hidden />
       </span>
     </motion.button>
