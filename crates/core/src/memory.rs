@@ -210,14 +210,14 @@ pub fn snapshot(sys: &System) -> MemorySnapshot {
         g.protected |= p.protected;
     }
     let mut apps: Vec<AppGroup> = groups.into_values().collect();
-    apps.sort_by(|a, b| b.memory_bytes.cmp(&a.memory_bytes));
+    apps.sort_by_key(|a| std::cmp::Reverse(a.memory_bytes));
     apps.truncate(40);
 
     let mut dev: Vec<ProcInfo> = procs.iter().filter(|p| p.dev_kind.is_some()).cloned().collect();
-    dev.sort_by(|a, b| b.memory_bytes.cmp(&a.memory_bytes));
+    dev.sort_by_key(|a| std::cmp::Reverse(a.memory_bytes));
 
     let mut top = procs;
-    top.sort_by(|a, b| b.memory_bytes.cmp(&a.memory_bytes));
+    top.sort_by_key(|a| std::cmp::Reverse(a.memory_bytes));
     top.truncate(60);
     MemorySnapshot { apps, dev_leftovers: dev, top_processes: top }
 }

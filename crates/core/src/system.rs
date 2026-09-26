@@ -76,7 +76,7 @@ pub fn main_disk() -> Option<DiskInfo> {
 pub fn pressure_from(available: u64, total: u64, free_percent: Option<u8>) -> Pressure {
     let pct = free_percent
         .map(u64::from)
-        .unwrap_or_else(|| if total == 0 { 100 } else { available * 100 / total });
+        .unwrap_or_else(|| (available * 100).checked_div(total).unwrap_or(100));
     match pct {
         0..=10 => Pressure::Critical,
         11..=25 => Pressure::Warning,

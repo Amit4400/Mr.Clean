@@ -146,7 +146,7 @@ pub fn scan(env: &Env, cancel: &Cancel, progress: &Progress) -> CleanerScan {
         if items.is_empty() {
             continue;
         }
-        items.sort_by(|a, b| b.bytes.cmp(&a.bytes));
+        items.sort_by_key(|a| std::cmp::Reverse(a.bytes));
         let total: u64 = items.iter().map(|i| i.bytes).sum();
         let note = match (rule.category, xcode) {
             (Category::Xcode, Some(false)) => {
@@ -160,7 +160,7 @@ pub fn scan(env: &Env, cancel: &Cancel, progress: &Progress) -> CleanerScan {
         }
         result.rules.push(RuleScan { rule: rule.into(), items, total_bytes: total, note });
     }
-    result.rules.sort_by(|a, b| b.total_bytes.cmp(&a.total_bytes));
+    result.rules.sort_by_key(|a| std::cmp::Reverse(a.total_bytes));
     result
 }
 

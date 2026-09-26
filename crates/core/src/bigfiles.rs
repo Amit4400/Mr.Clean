@@ -163,7 +163,7 @@ pub fn scan(root: &Path, cancel: &Cancel, progress: &Progress) -> BigScan {
     }
 
     // Roll folder totals up, deepest first.
-    dirs.sort_by(|a, b| b.0.cmp(&a.0));
+    dirs.sort_by_key(|d| std::cmp::Reverse(d.0));
     let mut sizes = own;
     let mut children: HashMap<PathBuf, Vec<PathBuf>> = HashMap::new();
     for (_, d) in &dirs {
@@ -180,7 +180,7 @@ pub fn scan(root: &Path, cancel: &Cancel, progress: &Progress) -> BigScan {
     }
 
     let mut top: Vec<FileEntry> = heap.into_iter().map(|Reverse((b, p))| file_entry(p, b)).collect();
-    top.sort_by(|a, b| b.bytes.cmp(&a.bytes));
+    top.sort_by_key(|a| std::cmp::Reverse(a.bytes));
     BigScan { root, sizes, children, top, kinds, file_count, unreadable }
 }
 
@@ -188,7 +188,7 @@ impl BigScan {
     pub fn summary(&self) -> Summary {
         let mut kinds: Vec<KindTotal> =
             self.kinds.iter().map(|(k, (b, c))| KindTotal { kind: *k, bytes: *b, count: *c }).collect();
-        kinds.sort_by(|a, b| b.bytes.cmp(&a.bytes));
+        kinds.sort_by_key(|a| std::cmp::Reverse(a.bytes));
         Summary {
             root: self.root.display().to_string(),
             total_bytes: self.sizes.get(&self.root).copied().unwrap_or(0),
@@ -229,7 +229,7 @@ impl BigScan {
                 });
             }
         }
-        out.sort_by(|a, b| b.bytes.cmp(&a.bytes));
+        out.sort_by_key(|a| std::cmp::Reverse(a.bytes));
         out
     }
 
