@@ -20,7 +20,8 @@ test("overview scans everything and shows what it found", async ({ page }) => {
   await expect(page.getByText("MacBook Pro")).toBeVisible();
   await expect(page.getByText(/used of 1 TB/)).toBeVisible();
   await page.getByRole("button", { name: /Scan everything/ }).click();
-  await expect(page.getByRole("button", { name: /Review cleanup/ })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole("button", { name: /Scan again/ })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText("Quick actions")).toBeVisible();
   await expect(page.getByText(/needs attention|in good shape|little care/)).toBeVisible();
   await expect(page.getByText("4 issues")).toBeVisible();
   expect(errors).toEqual([]);

@@ -28,18 +28,18 @@ function NavItem({ active, label, icon: Icon, shortcut, extra, onClick }: { acti
       aria-current={active ? "page" : undefined}
       title={shortcut ? `${label} (${shortcut})` : label}
       className={cx(
-        "relative flex h-10 w-full cursor-pointer items-center gap-3 rounded-[12px] px-3 text-[14px] transition-colors",
+        "relative flex h-11 w-full cursor-pointer items-center gap-3.5 rounded-[12px] px-3.5 text-[14.5px] transition-colors",
         active ? "font-semibold text-accent-text" : "text-muted hover:bg-ink/[0.04] hover:text-ink",
       )}
     >
       {active && (
         <motion.span
           layoutId="nav-active"
-          className="absolute inset-0 rounded-[12px] bg-accent-soft ring-1 ring-accent/15"
+          className="absolute inset-0 rounded-[12px] bg-accent-soft shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] ring-1 ring-accent/15"
           transition={{ type: "spring", stiffness: 500, damping: 40 }}
         />
       )}
-      <Icon className="relative size-[18px]" strokeWidth={active ? 2 : 1.75} aria-hidden />
+      <Icon className="relative size-5" strokeWidth={active ? 2 : 1.75} aria-hidden />
       <span className="relative flex-1 text-left">{label}</span>
       {extra && <span className="relative">{extra}</span>}
     </button>
@@ -82,13 +82,15 @@ function Shell() {
       <aside className="flex w-[228px] shrink-0 flex-col px-3 pb-4">
         <div data-tauri-drag-region className="h-11 shrink-0" />
         <div data-tauri-drag-region className="mb-6 flex items-center gap-2.5 px-2">
-          <img src="/logo.png" alt="" className="size-10 drop-shadow-[0_4px_10px_rgba(34,197,94,0.35)]" draggable={false} />
+          <span className="glass flex size-11 shrink-0 items-center justify-center rounded-full">
+            <img src="/logo.png" alt="" className="size-8 drop-shadow-[0_3px_8px_rgba(34,197,94,0.35)]" draggable={false} />
+          </span>
           <div data-tauri-drag-region>
-            <div className="text-[17px] font-bold leading-tight tracking-[-0.01em]">Mr.Clean</div>
+            <div className="text-[18px] font-bold leading-tight tracking-[-0.01em]">Mr.Clean</div>
             <div className="whitespace-nowrap text-[11px] text-muted">Keep your Mac fast &amp; safe</div>
           </div>
         </div>
-        <nav aria-label="Main" className="flex flex-col gap-1">
+        <nav aria-label="Main" className="glass flex flex-col gap-1 rounded-[16px] p-1.5">
           {NAV.map((n, i) => (
             <NavItem
               key={n.id}

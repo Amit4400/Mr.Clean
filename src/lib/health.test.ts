@@ -6,10 +6,13 @@ const ok: HealthInput = { diskUsedPercent: 40, pressure: "normal", highThreats: 
 
 describe("health", () => {
   it("is healthy when nothing is wrong", () => {
-    expect(health(ok)).toMatchObject({ level: "good", label: "Healthy", headline: "Your Mac, in good shape." });
+    expect(health(ok)).toMatchObject({ level: "good", label: "Healthy", headline: "Your Mac, in good shape.", page: null });
   });
   it("puts security threats first", () => {
     expect(health({ ...ok, highThreats: 2, diskUsedPercent: 99 }).reason).toMatch(/2 security issues/);
+    expect(health({ ...ok, highThreats: 2 }).page).toBe("security");
+    expect(health({ ...ok, diskUsedPercent: 97 }).page).toBe("files");
+    expect(health({ ...ok, pressure: "warning" }).page).toBe("memory");
   });
   it("flags a nearly full disk", () => {
     expect(health({ ...ok, diskUsedPercent: 96 }).level).toBe("attention");

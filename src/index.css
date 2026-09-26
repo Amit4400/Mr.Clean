@@ -39,10 +39,12 @@
 
 :root {
   --c-window: #eef2f6;
-  --c-panel: rgba(255, 255, 255, 0.72);
+  --c-panel: rgba(255, 255, 255, 0.5);
   --c-bg: #f6f8fa;
   --c-sidebar: transparent;
-  --c-surface: rgba(255, 255, 255, 0.86);
+  --c-surface: rgba(255, 255, 255, 0.62);
+  --c-glass-border: rgba(255, 255, 255, 0.85);
+  --c-glass-shine: rgba(255, 255, 255, 0.9);
   --c-surface-2: #f1f5f9;
   --c-line: rgba(15, 23, 42, 0.07);
   --c-ink: #0f172a;
@@ -72,20 +74,27 @@
   --c-blob-a: #86efac;
   --c-blob-b: #93c5fd;
   --c-blob-c: #c4b5fd;
-  --c-blob-opacity: 0.38;
+  --c-blob-opacity: 0.5;
   --c-glass-1: rgba(255, 255, 255, 0.92);
   --c-glass-2: rgba(209, 250, 229, 0.55);
   --c-glass-edge: rgba(255, 255, 255, 0.85);
   --c-ring-track: rgba(255, 255, 255, 0.65);
+  --c-orb-1: rgba(255, 255, 255, 0.96);
+  --c-orb-2: rgba(236, 253, 245, 0.9);
+  --c-orb-3: rgba(167, 243, 208, 0.75);
+  --c-orb-core: rgba(255, 255, 255, 0.9);
+  --c-orb-rim: rgba(255, 255, 255, 0.95);
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --c-window: #0e1316;
-    --c-panel: rgba(22, 28, 32, 0.8);
+    --c-panel: rgba(20, 26, 30, 0.72);
     --c-bg: #161c20;
-    --c-surface: rgba(34, 42, 47, 0.78);
+    --c-surface: rgba(255, 255, 255, 0.05);
+    --c-glass-border: rgba(255, 255, 255, 0.1);
+    --c-glass-shine: rgba(255, 255, 255, 0.08);
     --c-surface-2: #252d32;
     --c-line: rgba(255, 255, 255, 0.08);
     --c-ink: #e8eef2;
@@ -115,11 +124,16 @@
     --c-blob-a: #15803d;
     --c-blob-b: #1d4ed8;
     --c-blob-c: #6d28d9;
-    --c-blob-opacity: 0.22;
+    --c-blob-opacity: 0.3;
     --c-glass-1: rgba(255, 255, 255, 0.07);
     --c-glass-2: rgba(34, 197, 94, 0.1);
     --c-glass-edge: rgba(255, 255, 255, 0.12);
     --c-ring-track: rgba(255, 255, 255, 0.06);
+    --c-orb-1: rgba(255, 255, 255, 0.1);
+    --c-orb-2: rgba(34, 197, 94, 0.08);
+    --c-orb-3: rgba(45, 212, 191, 0.2);
+    --c-orb-core: rgba(24, 31, 35, 0.92);
+    --c-orb-rim: rgba(255, 255, 255, 0.16);
     color-scheme: dark;
   }
 }
@@ -157,12 +171,15 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Frosted glass: translucent fill, bright hairline edge, a lit top edge. */
 .glass {
   background: var(--c-surface);
-  border: 1px solid var(--c-line);
-  box-shadow: var(--c-shadow);
-  backdrop-filter: blur(20px) saturate(1.4);
-  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border: 1px solid var(--c-glass-border);
+  box-shadow:
+    inset 0 1px 0 var(--c-glass-shine),
+    var(--c-shadow);
+  backdrop-filter: blur(24px) saturate(1.6);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
 }
 
 :focus-visible {
