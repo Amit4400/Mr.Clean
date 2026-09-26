@@ -4,6 +4,8 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { mock } from "./mock";
 import type {
   CleanerScan,
+  DeviceInfo,
+  MemoryBreakdown,
   CleanRequest,
   DeleteMode,
   DeleteReport,
@@ -30,6 +32,11 @@ function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
 export const api = {
   systemInfo: () => call<SystemInfo>("system_info"),
   memoryLive: () => call<MemoryInfo>("memory_live"),
+  deviceInfo: () => call<DeviceInfo>("device_info"),
+  memoryBreakdown: () => call<MemoryBreakdown>("memory_breakdown"),
+  /** PNG data URL of an app's icon: by `.app` path, or by installed app name. */
+  appIcon: (q: { bundle?: string | null; name?: string }) =>
+    call<string | null>("app_icon", { bundle: q.bundle ?? null, name: q.name ?? null }),
   homeDir: () => call<string>("home_dir"),
   hasFullDiskAccess: () => call<boolean>("has_full_disk_access"),
   cancelScan: () => call<void>("cancel_scan"),

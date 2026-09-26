@@ -1,6 +1,6 @@
-import { Loader2 } from "lucide-react";
+import { Loader2, type LucideProps } from "lucide-react";
 import { AnimatePresence, animate, motion, useReducedMotion } from "motion/react";
-import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ComponentType, type ReactNode } from "react";
 
 export function cx(...c: (string | false | null | undefined)[]) {
   return c.filter(Boolean).join(" ");
@@ -20,34 +20,25 @@ export const toneFill: Record<Tone, string> = {
 
 // ------------------------------------------------------------------ layout
 
-/** A page: sticky unified toolbar (title + actions) and padded content. */
+/** A page: big title + subtitle on the left, actions on the right. */
 export function Page({ title, subtitle, actions, children }: { title: string; subtitle?: ReactNode; actions?: ReactNode; children: ReactNode }) {
   return (
-    <div className="min-h-full">
-      <header
-        data-tauri-drag-region
-        className="sticky top-0 z-20 flex h-[52px] items-center gap-3 border-b border-line bg-bg/85 px-7 backdrop-blur-xl"
-      >
-        <h1 data-tauri-drag-region className="flex-1 truncate text-[15px] font-semibold tracking-[-0.01em]">
-          {title}
-        </h1>
-        {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+    <div className="mx-auto max-w-[1180px] px-8 pb-8 pt-6">
+      <header data-tauri-drag-region className="mb-5 flex items-start gap-4">
+        <div data-tauri-drag-region className="min-w-0 flex-1">
+          <h1 className="text-[28px] font-bold leading-tight tracking-[-0.03em]">{title}</h1>
+          {subtitle && <p className="mt-1 max-w-[75ch] text-[14px] text-muted">{subtitle}</p>}
+        </div>
+        {actions && <div className="flex shrink-0 items-center gap-2 pt-1">{actions}</div>}
       </header>
-      <div className="mx-auto max-w-[980px] px-7 pb-12 pt-5">
-        {subtitle && <p className="mb-5 max-w-[68ch] text-[13px] text-muted">{subtitle}</p>}
-        {children}
-      </div>
+      {children}
     </div>
   );
 }
 
-/** Grouped inset box, like macOS System Settings. */
+/** Frosted glass card. */
 export function Card({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <div className={cx("rounded-[10px] border border-line bg-surface shadow-[0_1px_2px_rgba(0,0,0,0.04)]", className)}>
-      {children}
-    </div>
-  );
+  return <div className={cx("glass rounded-[16px]", className)}>{children}</div>;
 }
 
 /** A titled section of grouped content. */
@@ -70,9 +61,10 @@ export function Group({ title, aside, footer, children, className }: { title?: R
 
 type Variant = "primary" | "secondary" | "danger" | "ghost";
 const variants: Record<Variant, string> = {
-  primary: "bg-accent text-accent-ink shadow-[0_1px_1px_rgba(0,0,0,0.12)] hover:brightness-105 active:brightness-95",
+  primary:
+    "bg-gradient-to-b from-[var(--c-accent-bright)] to-[var(--c-accent)] text-white shadow-[0_4px_14px_-4px_rgba(22,163,74,0.55)] hover:brightness-105 active:brightness-95",
   secondary:
-    "bg-surface text-ink border border-line shadow-[0_1px_1px_rgba(0,0,0,0.06)] hover:bg-surface-2 active:brightness-95",
+    "bg-surface text-ink border border-[var(--c-glass-border)] shadow-[inset_0_1px_0_var(--c-glass-shine),0_1px_3px_rgba(15,23,42,0.07)] backdrop-blur-xl hover:brightness-[1.03] active:brightness-95",
   danger: "bg-danger text-white shadow-[0_1px_1px_rgba(0,0,0,0.12)] hover:brightness-105 active:brightness-95",
   ghost: "text-accent-text hover:bg-accent-soft active:brightness-95",
 };
@@ -90,8 +82,8 @@ export function Button({
       {...rest}
       disabled={rest.disabled || busy}
       className={cx(
-        "inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-[6px] font-medium transition-[filter,background-color] duration-150 disabled:pointer-events-none disabled:opacity-45",
-        size === "sm" ? "h-6 px-2 text-[12px]" : "h-7 px-3 text-[13px]",
+        "inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-[9px] font-medium transition-[filter,background-color] duration-150 disabled:pointer-events-none disabled:opacity-45",
+        size === "sm" ? "h-7 px-2.5 text-[12px]" : "h-8 px-3.5 text-[13px]",
         variants[variant],
         className,
       )}
@@ -113,7 +105,7 @@ const badgeTones: Record<Tone, string> = {
 
 export function Badge({ tone = "neutral", children }: { tone?: Tone; children: ReactNode }) {
   return (
-    <span className={cx("inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-px text-[11px] font-medium", badgeTones[tone])}>
+    <span className={cx("inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold", badgeTones[tone])}>
       {children}
     </span>
   );
@@ -359,5 +351,135 @@ export function Modal({ open, title, children, footer, onClose }: { open: boolea
         </motion.div>
       )}
     </AnimatePresence>
+  );
+}
+
+// ---------------------------------------------------------- glass pieces
+
+/** Rounded square with a soft tinted background, holding an icon. */
+/** A tinted, duotone icon in a soft rounded tile (the look used across the app). */
+export function SoftTile({ icon: Icon, color, size = 40, round }: { icon: ComponentType<LucideProps>; color: string; size?: number; round?: boolean }) {
+  return (
+    <span
+      className={cx("flex shrink-0 items-center justify-center shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]", round ? "rounded-full" : "rounded-[30%]")}
+      style={{
+        width: size,
+        height: size,
+        color,
+        background: `linear-gradient(145deg, color-mix(in srgb, ${color} 22%, transparent), color-mix(in srgb, ${color} 8%, transparent))`,
+      }}
+    >
+      <Icon style={{ width: size * 0.46, height: size * 0.46 }} strokeWidth={2} fill="currentColor" fillOpacity={0.18} aria-hidden />
+    </span>
+  );
+}
+
+/** Rounded filter chip; pressed state is announced. */
+export function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      aria-pressed={active}
+      onClick={onClick}
+      className={cx(
+        "inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full px-3.5 text-[12.5px] font-medium transition-colors",
+        active
+          ? "bg-gradient-to-b from-[var(--c-accent-bright)] to-[var(--c-accent)] text-white shadow-[0_4px_12px_-4px_rgba(22,163,74,0.6)]"
+          : "glass text-muted hover:text-ink",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+export function IconTile({ color, size = 36, round, children }: { color: string; size?: number; round?: boolean; children: ReactNode }) {
+  return (
+    <span
+      className={cx("flex shrink-0 items-center justify-center", round ? "rounded-full" : "rounded-[11px]")}
+      style={{ width: size, height: size, color, background: `color-mix(in srgb, ${color} 14%, transparent)` }}
+    >
+      {children}
+    </span>
+  );
+}
+
+export interface DonutPart {
+  label: string;
+  value: number;
+  color: string;
+}
+
+/** Ring chart with rounded gaps between parts. */
+export function Donut({ parts, size = 148, stroke = 16, children, label }: { parts: DonutPart[]; size?: number; stroke?: number; children?: ReactNode; label: string }) {
+  const total = parts.reduce((a, p) => a + p.value, 0) || 1;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const gap = parts.filter((p) => p.value > 0).length > 1 ? 4 : 0;
+  let offset = 0;
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: size }} role="img" aria-label={label}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--c-surface-2)" strokeWidth={stroke} />
+        {parts.map((p, i) => {
+          const len = Math.max(0, (p.value / total) * c - gap);
+          const el = (
+            <motion.circle
+              key={p.label}
+              cx={size / 2}
+              cy={size / 2}
+              r={r}
+              fill="none"
+              stroke={p.color}
+              strokeWidth={stroke}
+              strokeLinecap="round"
+              strokeDasharray={`${len} ${c}`}
+              initial={{ strokeDashoffset: c }}
+              animate={{ strokeDashoffset: -offset }}
+              transition={{ duration: 0.8, delay: i * 0.08, ease: [0.2, 0.8, 0.2, 1] }}
+            />
+          );
+          offset += (p.value / total) * c;
+          return el;
+        })}
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">{children}</div>
+    </div>
+  );
+}
+
+/** Smooth area chart for 0–100 values (e.g. memory used over time). */
+export function AreaChart({ values, color, height = 120, label, yLabels }: { values: number[]; color: string; height?: number; label: string; yLabels?: [string, string] }) {
+  const w = 600;
+  const pts = values.length > 1 ? values : [values[0] ?? 0, values[0] ?? 0];
+  const step = w / (pts.length - 1);
+  const y = (v: number) => height - 6 - (Math.max(0, Math.min(100, v)) / 100) * (height - 12);
+  // Catmull-Rom → cubic Bézier for a soft line.
+  let d = `M0,${y(pts[0]).toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
+    const x1 = i * step, x2 = (i + 1) * step;
+    d += ` C${(x1 + step / 6).toFixed(1)},${(y(p1) + (y(p0) - y(p2)) / 6 * -1).toFixed(1)} ${(x2 - step / 6).toFixed(1)},${(y(p2) - (y(p3) - y(p1)) / 6).toFixed(1)} ${x2.toFixed(1)},${y(p2).toFixed(1)}`;
+  }
+  const id = `area-${label.replace(/\W/g, "")}`;
+  return (
+    <div className="relative">
+      <svg viewBox={`0 0 ${w} ${height}`} preserveAspectRatio="none" className="w-full" style={{ height }} role="img" aria-label={label}>
+        <defs>
+          <linearGradient id={id} x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" stopColor={color} stopOpacity={0.35} />
+            <stop offset="1" stopColor={color} stopOpacity={0.02} />
+          </linearGradient>
+        </defs>
+        <line x1="0" x2={w} y1={height / 2} y2={height / 2} stroke="var(--c-line)" strokeDasharray="4 6" />
+        <path d={`${d} L${w},${height} L0,${height} Z`} fill={`url(#${id})`} />
+        <path d={d} fill="none" stroke={color} strokeWidth={2} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+      </svg>
+      {yLabels && (
+        <div className="pointer-events-none absolute inset-y-0 right-0 flex flex-col justify-between py-1 text-[10.5px] text-faint">
+          <span>{yLabels[0]}</span>
+          <span>{yLabels[1]}</span>
+        </div>
+      )}
+    </div>
   );
 }

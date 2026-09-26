@@ -100,6 +100,8 @@ pub struct ProcInfo {
     pub protected: bool,
     pub dev_kind: Option<DevKind>,
     pub advice: Option<&'static str>,
+    /// The `.app` bundle this process belongs to (for its icon).
+    pub bundle: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -110,6 +112,7 @@ pub struct AppGroup {
     pub process_count: usize,
     pub pids: Vec<u32>,
     pub protected: bool,
+    pub bundle: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -226,6 +229,10 @@ fn to_info(p: &Process, me: Pid, my_uid: Option<&sysinfo::Uid>, sys: &System) ->
         command: cmd.chars().take(400).collect(),
         protected: is_protected(p, me, my_uid),
         advice: dev_kind.map(DevKind::advice),
+        bundle: p
+            .exe()
+            .and_then(crate::icons::bundle_of)
+            .map(|b| b.display().to_string()),
         dev_kind,
         name,
     }
@@ -251,7 +258,11 @@ pub fn snapshot(sys: &System) -> MemorySnapshot {
             process_count: 0,
             pids: vec![],
             protected: false,
+            bundle: None,
         });
+        if g.bundle.is_none() {
+            g.bundle = p.bundle.clone();
+        }
         g.memory_bytes += p.memory_bytes;
         g.cpu_percent += p.cpu_percent;
         g.process_count += 1;
@@ -372,9 +383,128 @@ pub fn quit_app(sys: &System, app: &str, force: bool) -> Vec<QuitResult> {
         .collect()
 }
 
+// --------------------------------------------------------------- breakdown
+
+/// Where RAM goes, in Activity Monitor's terms. `free` includes file cache
+/// that macOS hands back instantly when apps need it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct Breakdown {
+    pub total: u64,
+    pub apps: u64,
+    pub wired: u64,
+    pub compressed: u64,
+    pub free: u64,
+}
+
+fn finish(total: u64, apps: u64, wired: u64, compressed: u64) -> Breakdown {
+    let used = (apps + wired + compressed).min(total);
+    Breakdown {
+        total,
+        apps,
+        wired,
+        compressed,
+        free: total - used,
+    }
+}
+
+/// Parse macOS `vm_stat` output.
+pub fn parse_vm_stat(text: &str, total: u64) -> Option<Breakdown> {
+    let page: u64 = text
+        .split("page size of ")
+        .nth(1)?
+        .split_whitespace()
+        .next()?
+        .parse()
+        .ok()?;
+    let get = |key: &str| -> u64 {
+        text.lines()
+            .find(|l| l.trim_start().trim_start_matches('"').starts_with(key))
+            .and_then(|l| l.rsplit(':').next())
+            .and_then(|v| v.trim().trim_end_matches('.').parse::<u64>().ok())
+            .unwrap_or(0)
+            * page
+    };
+    let anonymous = get("Anonymous pages");
+    let purgeable = get("Pages purgeable");
+    Some(finish(
+        total,
+        anonymous.saturating_sub(purgeable),
+        get("Pages wired down"),
+        get("Pages occupied by compressor"),
+    ))
+}
+
+/// Parse Linux `/proc/meminfo` (values in kB).
+pub fn parse_meminfo(text: &str) -> Option<Breakdown> {
+    let get = |key: &str| -> u64 {
+        text.lines()
+            .find(|l| l.split(':').next() == Some(key))
+            .and_then(|l| l.split_whitespace().nth(1))
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(0)
+            * 1024
+    };
+    let total = get("MemTotal");
+    if total == 0 {
+        return None;
+    }
+    let wired = get("Unevictable") + get("Slab") + get("KernelStack") + get("PageTables");
+    let compressed = get("Zswap");
+    let used = total.saturating_sub(get("MemAvailable"));
+    let apps = used.saturating_sub(wired + compressed);
+    Some(finish(total, apps, wired, compressed))
+}
+
+pub fn breakdown(sys: &System) -> Breakdown {
+    let total = sys.total_memory();
+    let parsed = if cfg!(target_os = "macos") {
+        std::process::Command::new("vm_stat")
+            .output()
+            .ok()
+            .and_then(|o| parse_vm_stat(&String::from_utf8_lossy(&o.stdout), total))
+    } else if cfg!(target_os = "linux") {
+        std::fs::read_to_string("/proc/meminfo")
+            .ok()
+            .and_then(|t| parse_meminfo(&t))
+    } else {
+        None
+    };
+    parsed.unwrap_or_else(|| finish(total, total.saturating_sub(sys.available_memory()), 0, 0))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn vm_stat_breakdown() {
+        let out = "Mach Virtual Memory Statistics: (page size of 16384 bytes)
+Pages free:                                3000.
+Pages active:                            100000.
+Pages wired down:                         70000.
+Pages purgeable:                           5000.
+\"Translation faults\":                 123456.
+Pages occupied by compressor:             30000.
+Anonymous pages:                         250000.
+";
+        let total = 16 * 1024 * 1024 * 1024;
+        let b = parse_vm_stat(out, total).unwrap();
+        assert_eq!(b.apps, 245_000 * 16384);
+        assert_eq!(b.wired, 70_000 * 16384);
+        assert_eq!(b.compressed, 30_000 * 16384);
+        assert_eq!(b.apps + b.wired + b.compressed + b.free, total);
+        assert!(parse_vm_stat("garbage", total).is_none());
+    }
+
+    #[test]
+    fn meminfo_breakdown() {
+        let t = "MemTotal:       16000000 kB\nMemAvailable:    6000000 kB\nSlab:  500000 kB\nKernelStack: 20000 kB\nPageTables: 80000 kB\nUnevictable: 0 kB\n";
+        let b = parse_meminfo(t).unwrap();
+        assert_eq!(b.total, 16_000_000 * 1024);
+        assert_eq!(b.wired, 600_000 * 1024);
+        assert_eq!(b.free, 6_000_000 * 1024);
+        assert_eq!(b.apps, 9_400_000 * 1024);
+    }
 
     #[test]
     fn app_names_from_bundles() {

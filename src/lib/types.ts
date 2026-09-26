@@ -14,6 +14,24 @@ export interface MemoryInfo {
   cpu_percent: number;
 }
 
+export type DeviceKind = "laptop" | "imac" | "mini" | "studio" | "desktop";
+
+export interface DeviceInfo {
+  name: string;
+  chip: string;
+  memory_bytes: number;
+  os_label: string;
+  kind: DeviceKind;
+}
+
+export interface MemoryBreakdown {
+  total: number;
+  apps: number;
+  wired: number;
+  compressed: number;
+  free: number;
+}
+
 export interface DiskInfo {
   name: string;
   mount: string;
@@ -135,6 +153,7 @@ export interface ProcInfo {
   protected: boolean;
   dev_kind: DevKind | null;
   advice: string | null;
+  bundle: string | null;
 }
 
 export interface AppGroup {
@@ -144,6 +163,7 @@ export interface AppGroup {
   process_count: number;
   pids: number[];
   protected: boolean;
+  bundle: string | null;
 }
 
 export interface MemorySnapshot {

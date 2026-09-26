@@ -1,8 +1,11 @@
 @import "tailwindcss";
 
-/* Tokens follow macOS system colours. "-ink" variants are the darker, text-safe
-   versions (WCAG AA on tinted backgrounds); plain ones are for fills. */
+/* Airy "glass" look: a pale window, a frosted content panel with soft colour
+   blobs drifting behind it, emerald as the one accent. "-text" colours are the
+   darker, text-safe variants (WCAG AA); plain ones are for fills and icons. */
 @theme inline {
+  --color-window: var(--c-window);
+  --color-panel: var(--c-panel);
   --color-bg: var(--c-bg);
   --color-sidebar: var(--c-sidebar);
   --color-surface: var(--c-surface);
@@ -32,86 +35,116 @@
   --color-indigo: var(--c-indigo);
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable", "Segoe UI", Inter, Roboto, "Helvetica Neue", sans-serif;
   --font-mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
-  --ease-mac: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 :root {
-  --c-bg: #f5f5f7;
-  --c-sidebar: #ebebee;
-  --c-surface: #ffffff;
-  --c-surface-2: #f2f2f4;
-  --c-line: rgba(0, 0, 0, 0.09);
-  --c-ink: #1d1d1f;
-  --c-muted: #6e6e73;
-  --c-faint: #8a8a8e;
-  --c-accent: #007aff;
+  --c-window: #eef2f6;
+  --c-panel: rgba(255, 255, 255, 0.5);
+  --c-bg: #f6f8fa;
+  --c-sidebar: transparent;
+  --c-surface: rgba(255, 255, 255, 0.62);
+  --c-glass-border: rgba(255, 255, 255, 0.85);
+  --c-glass-shine: rgba(255, 255, 255, 0.9);
+  --c-surface-2: #f1f5f9;
+  --c-line: rgba(15, 23, 42, 0.07);
+  --c-ink: #0f172a;
+  --c-muted: #5b6678;
+  --c-faint: #8a94a6;
+  --c-accent: #16a34a;
+  --c-accent-bright: #22c55e;
   --c-accent-ink: #ffffff;
-  --c-accent-soft: rgba(0, 122, 255, 0.12);
-  --c-accent-text: #0062cc;
-  --c-safe: #34c759;
-  --c-safe-soft: rgba(52, 199, 89, 0.15);
-  --c-safe-text: #1d7a35;
-  --c-warn: #ff9500;
-  --c-warn-soft: rgba(255, 149, 0, 0.15);
-  --c-warn-text: #a35200;
-  --c-danger: #ff3b30;
-  --c-danger-soft: rgba(255, 59, 48, 0.12);
-  --c-danger-text: #c4150b;
-  --c-info: #007aff;
-  --c-info-soft: rgba(0, 122, 255, 0.1);
-  --c-info-text: #0062cc;
-  --c-purple: #af52de;
-  --c-teal: #30b0c7;
-  --c-indigo: #5856d6;
+  --c-accent-soft: rgba(34, 197, 94, 0.14);
+  --c-accent-text: #15803d;
+  --c-safe: #22c55e;
+  --c-safe-soft: rgba(34, 197, 94, 0.14);
+  --c-safe-text: #15803d;
+  --c-warn: #f59e0b;
+  --c-warn-soft: rgba(245, 158, 11, 0.15);
+  --c-warn-text: #b45309;
+  --c-danger: #ef4444;
+  --c-danger-soft: rgba(239, 68, 68, 0.12);
+  --c-danger-text: #dc2626;
+  --c-info: #3b82f6;
+  --c-info-soft: rgba(59, 130, 246, 0.12);
+  --c-info-text: #2563eb;
+  --c-purple: #8b5cf6;
+  --c-teal: #14b8a6;
+  --c-indigo: #6366f1;
+  --c-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.05);
+  --c-blob-a: #86efac;
+  --c-blob-b: #93c5fd;
+  --c-blob-c: #c4b5fd;
+  --c-blob-opacity: 0.5;
+  --c-glass-1: rgba(255, 255, 255, 0.92);
+  --c-glass-2: rgba(209, 250, 229, 0.55);
+  --c-glass-edge: rgba(255, 255, 255, 0.85);
+  --c-ring-track: rgba(255, 255, 255, 0.65);
+  --c-orb-1: rgba(255, 255, 255, 0.96);
+  --c-orb-2: rgba(236, 253, 245, 0.9);
+  --c-orb-3: rgba(167, 243, 208, 0.75);
+  --c-orb-core: rgba(255, 255, 255, 0.9);
+  --c-orb-rim: rgba(255, 255, 255, 0.95);
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --c-bg: #1e1e1e;
-    --c-sidebar: #28282a;
-    --c-surface: #2a2a2d;
-    --c-surface-2: #333336;
-    --c-line: rgba(255, 255, 255, 0.09);
-    --c-ink: #f5f5f7;
-    --c-muted: #a1a1a6;
-    --c-faint: #8a8a8f;
-    --c-accent: #0a84ff;
-    --c-accent-ink: #ffffff;
-    --c-accent-soft: rgba(10, 132, 255, 0.22);
-    --c-accent-text: #4da3ff;
-    --c-safe: #30d158;
-    --c-safe-soft: rgba(48, 209, 88, 0.18);
+    --c-window: #0e1316;
+    --c-panel: rgba(20, 26, 30, 0.72);
+    --c-bg: #161c20;
+    --c-surface: rgba(255, 255, 255, 0.05);
+    --c-glass-border: rgba(255, 255, 255, 0.1);
+    --c-glass-shine: rgba(255, 255, 255, 0.08);
+    --c-surface-2: #252d32;
+    --c-line: rgba(255, 255, 255, 0.08);
+    --c-ink: #e8eef2;
+    --c-muted: #a3afba;
+    --c-faint: #7c8893;
+    --c-accent: #22c55e;
+    --c-accent-bright: #4ade80;
+    --c-accent-ink: #052e16;
+    --c-accent-soft: rgba(34, 197, 94, 0.18);
+    --c-accent-text: #4ade80;
+    --c-safe: #22c55e;
+    --c-safe-soft: rgba(34, 197, 94, 0.18);
     --c-safe-text: #4ade80;
-    --c-warn: #ff9f0a;
-    --c-warn-soft: rgba(255, 159, 10, 0.18);
-    --c-warn-text: #ffb340;
-    --c-danger: #ff453a;
-    --c-danger-soft: rgba(255, 69, 58, 0.18);
-    --c-danger-text: #ff6961;
-    --c-info: #0a84ff;
-    --c-info-soft: rgba(10, 132, 255, 0.18);
-    --c-info-text: #4da3ff;
-    --c-purple: #bf5af2;
-    --c-teal: #40c8e0;
-    --c-indigo: #5e5ce6;
+    --c-warn: #f59e0b;
+    --c-warn-soft: rgba(245, 158, 11, 0.18);
+    --c-warn-text: #fbbf24;
+    --c-danger: #f87171;
+    --c-danger-soft: rgba(248, 113, 113, 0.16);
+    --c-danger-text: #fca5a5;
+    --c-info: #60a5fa;
+    --c-info-soft: rgba(96, 165, 250, 0.16);
+    --c-info-text: #93c5fd;
+    --c-purple: #a78bfa;
+    --c-teal: #2dd4bf;
+    --c-indigo: #818cf8;
+    --c-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
+    --c-blob-a: #15803d;
+    --c-blob-b: #1d4ed8;
+    --c-blob-c: #6d28d9;
+    --c-blob-opacity: 0.3;
+    --c-glass-1: rgba(255, 255, 255, 0.07);
+    --c-glass-2: rgba(34, 197, 94, 0.1);
+    --c-glass-edge: rgba(255, 255, 255, 0.12);
+    --c-ring-track: rgba(255, 255, 255, 0.06);
+    --c-orb-1: rgba(255, 255, 255, 0.1);
+    --c-orb-2: rgba(34, 197, 94, 0.08);
+    --c-orb-3: rgba(45, 212, 191, 0.2);
+    --c-orb-core: rgba(24, 31, 35, 0.92);
+    --c-orb-rim: rgba(255, 255, 255, 0.16);
     color-scheme: dark;
   }
 }
 
-/* On macOS the window is transparent and the sidebar shows the system's
-   vibrancy material through it; elsewhere everything stays solid. */
-html.vibrancy {
-  background: transparent;
-}
+/* macOS shows the system vibrancy material through the transparent window. */
+html.vibrancy,
 html.vibrancy body {
   background: transparent;
 }
-html.vibrancy .sidebar {
-  background: transparent;
-}
 html:not(.vibrancy) body {
-  background: var(--c-bg);
+  background: var(--c-window);
 }
 
 html,
@@ -125,7 +158,7 @@ body {
   color: var(--c-ink);
   font-family: var(--font-sans);
   font-size: 13px;
-  line-height: 1.4;
+  line-height: 1.45;
   -webkit-font-smoothing: antialiased;
   user-select: none;
   cursor: default;
@@ -134,15 +167,25 @@ body {
 .selectable {
   user-select: text;
 }
-
 .tabular {
   font-variant-numeric: tabular-nums;
 }
 
+/* Frosted glass: translucent fill, bright hairline edge, a lit top edge. */
+.glass {
+  background: var(--c-surface);
+  border: 1px solid var(--c-glass-border);
+  box-shadow:
+    inset 0 1px 0 var(--c-glass-shine),
+    var(--c-shadow);
+  backdrop-filter: blur(24px) saturate(1.6);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+}
+
 :focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--c-accent) 55%, transparent);
+  outline: 3px solid color-mix(in srgb, var(--c-accent) 50%, transparent);
   outline-offset: 1px;
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
 ::-webkit-scrollbar {
@@ -150,10 +193,59 @@ body {
   height: 11px;
 }
 ::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--c-ink) 22%, transparent);
+  background: color-mix(in srgb, var(--c-ink) 18%, transparent);
   border-radius: 10px;
   border: 3px solid transparent;
   background-clip: padding-box;
+}
+
+/* ---- soft drifting colour blobs behind the content panel ---- */
+.blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(70px);
+  opacity: var(--c-blob-opacity);
+  will-change: transform;
+  animation: drift 26s ease-in-out infinite alternate;
+}
+@keyframes drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(40px, -30px, 0) scale(1.12);
+  }
+}
+
+/* ---- the storage "blob" ring ---- */
+@keyframes spin-slow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.025);
+  }
+}
+.spin-slow {
+  animation: spin-slow 48s linear infinite;
+  transform-origin: 50% 50%;
+}
+.breathe {
+  animation: breathe 7s ease-in-out infinite;
+  transform-origin: 50% 50%;
+}
+
+/* Pause decoration when the window is in the background. */
+html.paused .blob,
+html.paused .spin-slow,
+html.paused .breathe {
+  animation-play-state: paused;
 }
 
 @keyframes shimmer {
