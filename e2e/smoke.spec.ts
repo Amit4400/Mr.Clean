@@ -50,7 +50,7 @@ test("large files: protected folders can't be selected", async ({ page }) => {
   await expect(page.getByText(/in [\d,]+ files/)).toBeVisible({ timeout: 10_000 });
   await expect(page.getByRole("checkbox", { name: "Documents" })).toBeDisabled();
   await expect(page.getByRole("checkbox", { name: "notes.txt" })).toBeEnabled();
-  await page.getByRole("button", { name: "Biggest files" }).click();
+  await page.getByRole("radio", { name: "Biggest files" }).click();
   await expect(page.getByText("Xcode_15.4.xip", { exact: true })).toBeVisible();
   expect(errors).toEqual([]);
 });

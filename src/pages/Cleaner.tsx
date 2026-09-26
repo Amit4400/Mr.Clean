@@ -1,7 +1,7 @@
 import { Check, ChevronRight, Copy, Info, Package, Sparkles, StopCircle, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { Badge, Button, Card, Checkbox, Empty, Modal, PageHeader, cx, type Tone } from "../components/ui";
+import { AnimatedNumber, Badge, Button, Card, Checkbox, Empty, Group, Modal, Page, Segmented, Skeleton, cx, type Tone } from "../components/ui";
 import { api } from "../lib/api";
 import { ago, bytes, tildify } from "../lib/format";
 import { useScanProgress, useStore } from "../lib/store";
@@ -16,7 +16,7 @@ const CATEGORY: Record<Category, string> = {
   system: "System",
 };
 const SAFETY: Record<Safety, { label: string; tone: Tone }> = {
-  safe: { label: "Safe", tone: "accent" },
+  safe: { label: "Safe", tone: "safe" },
   review: { label: "Review", tone: "warn" },
   report_only: { label: "Info only", tone: "neutral" },
 };
@@ -103,32 +103,43 @@ export default function Cleaner() {
   }, [cleaner]);
 
   return (
-    <div>
-      <PageHeader
-        title="Dev Cleaner"
-        subtitle="Caches and leftovers from Xcode, Android, npm and other developer tools. Your own files are never touched."
-        actions={
-          scanning ? (
-            <Button onClick={() => api.cancelScan()}>
-              <StopCircle className="size-4" /> Stop
-            </Button>
-          ) : (
-            <Button variant={cleaner ? "secondary" : "primary"} onClick={scan}>
-              <Sparkles className="size-4" /> {cleaner ? "Rescan" : "Scan"}
+    <Page
+      title="Dev Cleaner"
+      subtitle="Caches and leftovers from Xcode, Android, npm and other developer tools. Your own files are never touched."
+      actions={
+        scanning ? (
+          <Button onClick={() => api.cancelScan()}>
+            <StopCircle className="size-3.5" aria-hidden /> Stop
+          </Button>
+        ) : (
+          cleaner && (
+            <Button onClick={scan}>
+              <Sparkles className="size-3.5" aria-hidden /> Rescan
             </Button>
           )
-        }
-      />
-
+        )
+      }
+    >
       {scanning && (
-        <Card className="mb-4 p-4 text-sm text-muted">
-          Measuring caches… <span className="tabular font-medium text-ink">{bytes(progress?.bytes ?? 0)}</span> in{" "}
-          <span className="tabular">{(progress?.files ?? 0).toLocaleString()}</span> files so far
-        </Card>
+        <>
+          <p className="mb-3 px-1 text-[12.5px] text-muted" aria-live="polite">
+            Measuring caches… <span className="tabular font-medium text-ink">{bytes(progress?.bytes ?? 0)}</span> in{" "}
+            <span className="tabular">{(progress?.files ?? 0).toLocaleString()}</span> files so far
+          </p>
+          <Skeleton rows={6} />
+        </>
       )}
 
       {!cleaner && !scanning && (
-        <Empty icon={<Sparkles className="size-6" />} title="Find developer junk">
+        <Empty
+          icon={<Sparkles className="size-7" aria-hidden />}
+          title="Find developer junk"
+          action={
+            <Button variant="primary" onClick={scan}>
+              Scan
+            </Button>
+          }
+        >
           Scans Xcode DerivedData, iOS simulators, Android emulators, Gradle, npm/yarn/pnpm, CocoaPods, Homebrew and app caches. Nothing is deleted until you confirm.
         </Empty>
       )}
@@ -136,18 +147,20 @@ export default function Cleaner() {
       {cleaner && !scanning && (
         <>
           {cleaner.xcode_installed === false && cleaner.rules.some((r) => r.rule.category === "xcode") && (
-            <Card className="mb-4 flex items-start gap-3 border-warn/40 bg-warn-soft p-4 text-sm">
-              <Info className="mt-0.5 size-4 shrink-0 text-warn" />
+            <Card className="mb-4 flex items-start gap-3 border-warn/30 bg-warn-soft p-3.5 text-[13px]">
+              <Info className="mt-0.5 size-4 shrink-0 text-warn-text" aria-hidden />
               <div>
                 <b>Xcode isn't installed</b>, but its simulators and caches are still on disk. They're leftovers and safe to remove.
               </div>
             </Card>
           )}
 
-          <Card className="sticky top-6 z-10 mb-4 flex items-center gap-4 p-4 shadow-sm">
+          <Card className="sticky top-[60px] z-10 mb-6 flex items-center gap-4 bg-surface/90 p-3.5 pl-4 backdrop-blur-xl">
             <div className="flex-1">
-              <div className="tabular text-lg font-semibold">{bytes(selected.bytes)} selected</div>
-              <div className="text-xs text-muted">
+              <div className="text-[17px] font-semibold tracking-[-0.01em]">
+                <AnimatedNumber value={selected.bytes} format={bytes} /> selected
+              </div>
+              <div className="text-[11.5px] text-muted">
                 {bytes(cleaner.total_bytes)} found · {bytes(cleaner.safe_bytes)} marked safe ·{" "}
                 {deleteMode === "trash" ? "items go to the Trash" : "items are deleted permanently"}
               </div>
@@ -156,24 +169,20 @@ export default function Cleaner() {
               Select safe only
             </Button>
             <Button variant="primary" disabled={selected.count === 0} onClick={() => setConfirm(true)}>
-              <Trash2 className="size-4" /> Clean
+              <Trash2 className="size-3.5" aria-hidden /> Clean
             </Button>
           </Card>
 
           {grouped.length === 0 && (
-            <Empty icon={<Check className="size-6" />} title="Nothing to clean">
+            <Empty icon={<Check className="size-7" aria-hidden />} title="Nothing to clean">
               No developer caches found. Nice and tidy.
             </Empty>
           )}
 
-          <div className="space-y-5">
+          <div>
             {grouped.map(([cat, rules]) => (
-              <section key={cat}>
-                <div className="mb-2 flex items-baseline justify-between px-1">
-                  <h2 className="text-sm font-semibold text-muted">{CATEGORY[cat]}</h2>
-                  <span className="tabular text-xs text-faint">{bytes(sum(rules))}</span>
-                </div>
-                <Card className="divide-y divide-line">
+              <Group key={cat} title={CATEGORY[cat]} aside={bytes(sum(rules))}>
+                <Card className="divide-y divide-line overflow-hidden">
                   {rules.map((r) => (
                     <RuleRow
                       key={r.rule.id}
@@ -194,7 +203,7 @@ export default function Cleaner() {
                     />
                   ))}
                 </Card>
-              </section>
+              </Group>
             ))}
           </div>
         </>
@@ -234,7 +243,7 @@ export default function Cleaner() {
         </ul>
         <p className="mt-4 text-xs text-faint">Quit Xcode, Android Studio and your editors first for the best result.</p>
       </Modal>
-    </div>
+    </Page>
   );
 }
 
@@ -264,27 +273,35 @@ function RuleRow({
   const [copied, setCopied] = useState(false);
   return (
     <div>
-      <div className="flex cursor-pointer items-center gap-3 px-4 py-3 hover:bg-surface-2" onClick={onToggleOpen}>
+      <div
+        className="flex cursor-pointer items-center gap-3 px-4 py-2.5 transition-colors hover:bg-surface-2"
+        onClick={onToggleOpen}
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
+        onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onToggleOpen())}
+      >
         <Checkbox label={r.rule.name} checked={all} indeterminate={selected.size > 0} disabled={reportOnly} onChange={onRule} />
-        <ChevronRight className={cx("size-4 shrink-0 text-faint transition", open && "rotate-90")} />
+        <ChevronRight className={cx("size-3.5 shrink-0 text-faint transition-transform duration-200", open && "rotate-90")} aria-hidden />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="font-medium">{r.rule.name}</span>
+            <span className="text-[13px] font-medium">{r.rule.name}</span>
             <Badge tone={SAFETY[r.rule.safety].tone}>{SAFETY[r.rule.safety].label}</Badge>
           </div>
-          {r.note && r.rule.category !== "xcode" && <div className="mt-0.5 text-xs text-warn">{r.note}</div>}
+          {r.note && r.rule.category !== "xcode" && <div className="mt-0.5 text-[11.5px] text-warn-text">{r.note}</div>}
         </div>
-        <div className="tabular text-right text-sm font-semibold">{bytes(r.total_bytes)}</div>
+        <div className="tabular text-right text-[13px] font-semibold">{bytes(r.total_bytes)}</div>
       </div>
       {open && (
-        <div className="border-t border-line bg-surface-2 px-4 pb-3 pt-2 pl-14">
-          <p className="mb-2 text-xs text-muted">{r.rule.description}</p>
+        <div className="border-t border-line bg-bg/60 px-4 pb-3 pl-[58px] pt-2.5">
+          <p className="mb-2 text-[12px] text-muted">{r.rule.description}</p>
           {r.rule.command && (
             <div className="mb-2 flex items-center gap-2">
-              <code className="selectable flex-1 truncate rounded-md bg-surface px-2 py-1 font-mono text-xs">{r.rule.command}</code>
+              <code className="selectable flex-1 truncate rounded-[6px] border border-line bg-surface px-2 py-1 font-mono text-[11.5px]">{r.rule.command}</code>
               <Button
                 size="sm"
                 variant="ghost"
+                aria-label="Copy command"
                 onClick={() => {
                   navigator.clipboard?.writeText(r.rule.command!.split("   #")[0]);
                   setCopied(true);
@@ -297,9 +314,9 @@ function RuleRow({
           )}
           <ul className="divide-y divide-line/60">
             {r.items.slice(0, 200).map((i) => (
-              <li key={i.path} className="flex items-center gap-3 py-1.5 text-xs">
+              <li key={i.path} className="flex items-center gap-3 py-1.5 text-[12px]">
                 <Checkbox label={i.name} checked={selected.has(i.path)} disabled={reportOnly} onChange={(on) => onItem(i.path, on)} />
-                <span className="selectable min-w-0 flex-1 truncate text-muted" title={i.path}>
+                <span className="selectable min-w-0 flex-1 truncate font-mono text-[11.5px] text-muted" title={i.path}>
                   {tildify(i.path, home)}
                 </span>
                 <span className="w-24 text-right text-faint">{ago(i.modified)}</span>
@@ -348,35 +365,36 @@ function NodeModulesSection() {
   const selBytes = (hits ?? []).filter((h) => sel.has(h.path)).reduce((a, h) => a + h.bytes, 0);
 
   return (
-    <section className="mt-8">
-      <div className="mb-2 flex items-end justify-between px-1">
+    <section className="mt-10">
+      <div className="mb-2 flex items-end justify-between gap-4 px-1">
         <div>
-          <h2 className="text-sm font-semibold">Old node_modules</h2>
-          <p className="text-xs text-muted">Projects you haven't touched in a while. `npm install` brings them back when you need them.</p>
+          <h2 className="text-[13px] font-semibold">Old node_modules</h2>
+          <p className="text-[12px] text-muted">Projects you haven't touched in a while. `npm install` brings them back when you need them.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <select
-            className="h-9 rounded-lg border border-line bg-surface px-2 text-sm"
+        <div className="flex shrink-0 items-center gap-2">
+          <Segmented
+            label="Untouched for"
             value={days}
-            onChange={(e) => setDays(Number(e.target.value))}
-          >
-            <option value={30}>Untouched 30+ days</option>
-            <option value={90}>Untouched 90+ days</option>
-            <option value={180}>Untouched 6+ months</option>
-          </select>
+            onChange={setDays}
+            options={[
+              { value: 30, label: "30 days" },
+              { value: 90, label: "90 days" },
+              { value: 180, label: "6 months" },
+            ]}
+          />
           <Button busy={busy} onClick={find}>
-            <Package className="size-4" /> {hits ? "Search again" : "Find"}
+            <Package className="size-3.5" aria-hidden /> {hits ? "Search again" : "Find"}
           </Button>
         </div>
       </div>
       {hits && (
-        <Card>
+        <Card className="overflow-hidden">
           {hits.length === 0 ? (
-            <div className="p-6 text-center text-sm text-muted">No node_modules folders found in your projects.</div>
+            <div className="p-6 text-center text-[13px] text-muted">No node_modules folders found in your projects.</div>
           ) : (
             <>
               <div className="flex items-center gap-3 border-b border-line px-4 py-2.5">
-                <span className="flex-1 text-sm text-muted">
+                <span className="flex-1 text-[12.5px] text-muted">
                   {hits.length} projects · {bytes(hits.reduce((a, h) => a + h.bytes, 0))}
                 </span>
                 <Button size="sm" variant="ghost" onClick={() => setSel(new Set(hits.filter((h) => h.stale).map((h) => h.path)))}>
@@ -388,7 +406,7 @@ function NodeModulesSection() {
               </div>
               <ul className="divide-y divide-line">
                 {hits.map((h) => (
-                  <li key={h.path} className="flex items-center gap-3 px-4 py-2 text-sm">
+                  <li key={h.path} className="flex items-center gap-3 px-4 py-2 text-[13px]">
                     <Checkbox
                       label={h.project}
                       checked={sel.has(h.path)}
@@ -405,7 +423,7 @@ function NodeModulesSection() {
                       {tildify(h.project, home)}
                     </span>
                     {h.stale && <Badge tone="warn">old</Badge>}
-                    <span className="w-28 text-right text-xs text-faint">{ago(h.last_touched)}</span>
+                    <span className="w-28 text-right text-[11.5px] text-faint">{ago(h.last_touched)}</span>
                     <span className="tabular w-16 text-right font-medium">{bytes(h.bytes)}</span>
                   </li>
                 ))}

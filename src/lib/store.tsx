@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 
 import { api, onScanProgress } from "./api";
 import { bytes } from "./format";
-import type { CleanerScan, DeleteMode, DeleteReport, ScanProgress, SecurityReport, Summary } from "./types";
+import type { CleanerScan, DeleteMode, DeleteReport, MemoryInfo, ScanProgress, SecurityReport, Summary } from "./types";
 
 export type Page = "dashboard" | "cleaner" | "files" | "security" | "memory" | "settings";
 
@@ -24,6 +24,10 @@ interface Store {
   setSecurity: (s: SecurityReport | null) => void;
   files: Summary | null;
   setFiles: (s: Summary | null) => void;
+  /** Live memory, sampled every 2 s for the whole app. */
+  mem: MemoryInfo | null;
+  /** Last 30 samples (60 s) of RAM used, in percent. */
+  memHistory: number[];
   toasts: Toast[];
   toast: (text: string, tone?: "ok" | "error") => void;
   reportDelete: (r: DeleteReport, mode: DeleteMode) => void;
@@ -47,6 +51,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [security, setSecurity] = useState<SecurityReport | null>(null);
   const [files, setFiles] = useState<Summary | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [mem, setMem] = useState<MemoryInfo | null>(null);
+  const [memHistory, setMemHistory] = useState<number[]>([]);
+
+  useEffect(() => {
+    const sample = () =>
+      api
+        .memoryLive()
+        .then((m) => {
+          setMem(m);
+          const pct = m.total_bytes > 0 ? (m.used_bytes / m.total_bytes) * 100 : 0;
+          setMemHistory((h) => [...h.slice(-29), pct]);
+        })
+        .catch(() => {});
+    sample();
+    const t = setInterval(sample, 2000);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     api.homeDir().then(setHome).catch(() => {});
@@ -80,7 +101,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <Ctx.Provider value={{ page, go, home, deleteMode, setDeleteMode, cleaner, setCleaner, security, setSecurity, files, setFiles, toasts, toast, reportDelete }}>
+    <Ctx.Provider value={{ page, go, home, deleteMode, setDeleteMode, cleaner, setCleaner, security, setSecurity, files, setFiles, mem, memHistory, toasts, toast, reportDelete }}>
       {children}
     </Ctx.Provider>
   );
