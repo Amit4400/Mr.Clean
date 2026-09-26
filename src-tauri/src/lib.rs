@@ -12,7 +12,7 @@ use mrclean_core::memory::{self, MemorySnapshot, QuitResult};
 use mrclean_core::safety::{DeleteMode, DeleteReport};
 use mrclean_core::security::{self, QuarantineEntry, SecurityReport};
 use mrclean_core::sysinfo::System;
-use mrclean_core::system::{self, MemoryInfo, SystemInfo};
+use mrclean_core::system::{self, DeviceInfo, MemoryInfo, SystemInfo};
 use mrclean_core::{Cancel, Env};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
@@ -82,6 +82,39 @@ fn memory_live(state: State<'_, AppState>) -> Res<MemoryInfo> {
     sys.refresh_memory();
     sys.refresh_cpu_usage();
     Ok(system::memory(&sys))
+}
+
+#[tauri::command]
+async fn device_info() -> Res<DeviceInfo> {
+    blocking(|| {
+        let mut sys = System::new();
+        sys.refresh_memory();
+        sys.refresh_cpu_all();
+        system::device(&sys)
+    })
+    .await
+}
+
+#[tauri::command]
+fn memory_breakdown(state: State<'_, AppState>) -> Res<memory::Breakdown> {
+    let mut sys = state.sys.lock().map_err(|e| e.to_string())?;
+    sys.refresh_memory();
+    Ok(memory::breakdown(&sys))
+}
+
+/// Icon of an app bundle (a path ending in `.app`), or of an installed app by name.
+#[tauri::command]
+async fn app_icon(bundle: Option<String>, name: Option<String>) -> Res<Option<String>> {
+    blocking(move || {
+        let env = Env::detect();
+        let path = match (bundle, name) {
+            (Some(b), _) => Some(PathBuf::from(b)),
+            (None, Some(n)) => mrclean_core::icons::find_app(&env, &n),
+            _ => None,
+        }?;
+        mrclean_core::icons::icon_data_url(&path, &mrclean_core::icons::default_cache_dir())
+    })
+    .await
 }
 
 #[tauri::command]
@@ -269,6 +302,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             system_info,
             memory_live,
+            device_info,
+            memory_breakdown,
+            app_icon,
             home_dir,
             has_full_disk_access,
             open_full_disk_access_settings,

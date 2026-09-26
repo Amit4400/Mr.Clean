@@ -2150,6 +2150,7 @@ dependencies = [
 name = "mrclean-core"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "chrono",
  "dirs 7.0.0",
  "jwalk",

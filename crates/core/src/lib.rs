@@ -5,6 +5,7 @@ pub mod bigfiles;
 pub mod cleaner;
 pub mod env;
 pub mod fsutil;
+pub mod icons;
 pub mod memory;
 pub mod safety;
 pub mod security;

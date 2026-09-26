@@ -9,16 +9,19 @@ const day = 86400;
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-const memory = () => ({
-  total_bytes: 8 * GB,
-  used_bytes: 6.4 * GB + Math.random() * 0.3 * GB,
-  available_bytes: 1.4 * GB,
-  swap_total_bytes: 3 * GB,
-  swap_used_bytes: 1.9 * GB,
-  free_percent: 22,
-  pressure: "warning",
-  cpu_percent: 18 + Math.random() * 10,
-});
+const memory = () => {
+  const used = 5.8 * GB + Math.random() * 0.6 * GB;
+  return {
+    total_bytes: 16 * GB,
+    used_bytes: used,
+    available_bytes: 16 * GB - used,
+    swap_total_bytes: 2 * GB,
+    swap_used_bytes: 0.4 * GB,
+    free_percent: 58,
+    pressure: "normal",
+    cpu_percent: 14 + Math.random() * 10,
+  };
+};
 
 const rule = (id: string, name: string, category: string, safety: string, description: string, items: [string, number, number][], extra: Record<string, unknown> = {}) => ({
   rule: { id, name, category, safety, description, command: null, always_permanent: false, ...extra },
@@ -90,17 +93,17 @@ const children = (path: string) => {
 };
 
 const proc = (pid: number, name: string, app: string, mem: number, dev: string | null, advice: string | null, command = "") => ({
-  pid, name, app, memory_bytes: mem, cpu_percent: Math.random() * 20, command, protected: false, dev_kind: dev, advice,
+  pid, name, app, memory_bytes: mem, cpu_percent: Math.random() * 20, command, protected: false, dev_kind: dev, advice, bundle: null,
 });
 
 const snapshot = () => ({
   apps: [
-    { app: "Google Chrome", memory_bytes: 2.3 * GB, cpu_percent: 14, process_count: 23, pids: [1], protected: false },
-    { app: "Android Studio", memory_bytes: 1.9 * GB, cpu_percent: 6, process_count: 3, pids: [2], protected: false },
-    { app: "java", memory_bytes: 1.4 * GB, cpu_percent: 0.3, process_count: 2, pids: [3], protected: false },
-    { app: "Slack", memory_bytes: 0.7 * GB, cpu_percent: 1, process_count: 6, pids: [4], protected: false },
-    { app: "WindowServer", memory_bytes: 0.5 * GB, cpu_percent: 9, process_count: 1, pids: [5], protected: true },
-    { app: "Visual Studio Code", memory_bytes: 0.9 * GB, cpu_percent: 4, process_count: 11, pids: [6], protected: false },
+    { app: "Google Chrome", memory_bytes: 705 * MB, cpu_percent: 9, process_count: 29, pids: [1], protected: false, bundle: null },
+    { app: "Cursor", memory_bytes: 604 * MB, cpu_percent: 4, process_count: 15, pids: [2], protected: false, bundle: null },
+    { app: "Claude", memory_bytes: 360 * MB, cpu_percent: 1, process_count: 17, pids: [3], protected: false, bundle: null },
+    { app: "Docker", memory_bytes: 182 * MB, cpu_percent: 1, process_count: 8, pids: [4], protected: false, bundle: null },
+    { app: "Xcode", memory_bytes: 146 * MB, cpu_percent: 0.4, process_count: 6, pids: [5], protected: false, bundle: null },
+    { app: "WindowServer", memory_bytes: 120 * MB, cpu_percent: 6, process_count: 1, pids: [6], protected: true, bundle: null },
   ],
   dev_leftovers: [
     proc(4411, "java", "java", 1.1 * GB, "gradle_daemon", "Idle Gradle daemons keep 0.5–2 GB each. Safe to quit; the next build starts a new one.", "java … org.gradle.launcher.daemon.bootstrap.GradleDaemon 8.7"),
@@ -135,8 +138,11 @@ export async function mock<T>(cmd: string, args?: Record<string, unknown>): Prom
   const r = (v: unknown, ms = 150) => wait(ms).then(() => v as T);
   switch (cmd) {
     case "system_info":
-      return r({ hostname: "demo-mbp", os_name: "macOS", os_version: "macOS 15.3 Sequoia", model: "MacBookAir10,1", cpu_brand: "Apple M1", cpu_cores: 8, uptime_secs: 3 * day + 5000, disk: { name: "Macintosh HD", mount: "/System/Volumes/Data", total_bytes: 245 * GB, free_bytes: 11.8 * GB }, memory: memory() });
+      return r({ hostname: "demo-mbp", os_name: "macOS", os_version: "macOS 15.3 Sequoia", model: "MacBookAir10,1", cpu_brand: "Apple M1", cpu_cores: 8, uptime_secs: 3 * day + 5000, disk: { name: "Macintosh HD", mount: "/System/Volumes/Data", total_bytes: 1000 * GB, free_bytes: 658 * GB }, memory: memory() });
     case "memory_live": return r(memory(), 20);
+    case "device_info": return r({ name: "MacBook Pro", chip: "Apple M2 Pro", memory_bytes: 16 * GB, os_label: "macOS Sonoma 14.5", kind: "laptop" }, 80);
+    case "memory_breakdown": return r({ total: 16 * GB, apps: 4.2 * GB, wired: 1.1 * GB, compressed: 0.5 * GB, free: 10.2 * GB }, 20);
+    case "app_icon": return r(null, 0);
     case "home_dir": return r(HOME, 0);
     case "has_full_disk_access": return r(false, 0);
     case "cleaner_scan": return r(cleanerScan(), 1200);
