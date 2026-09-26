@@ -138,7 +138,7 @@ pub fn scan(root: &Path, cancel: &Cancel, progress: &Progress) -> BigScan {
             for child in children.iter_mut().flatten() {
                 let p = child.path();
                 if PRUNE_ABSOLUTE.iter().any(|x| p == Path::new(x)) {
-                    child.read_children_path = None;
+                    child.read_children = None;
                 }
             }
         });
@@ -154,7 +154,7 @@ pub fn scan(root: &Path, cancel: &Cancel, progress: &Progress) -> BigScan {
                 continue;
             }
         };
-        if e.read_children_error.is_some() {
+        if e.read_children.as_ref().is_some_and(|rc| rc.error().is_some()) {
             unreadable += 1;
         }
         let path = e.path();

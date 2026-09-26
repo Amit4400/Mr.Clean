@@ -1,7 +1,10 @@
 @import "tailwindcss";
 
+/* Tokens follow macOS system colours. "-ink" variants are the darker, text-safe
+   versions (WCAG AA on tinted backgrounds); plain ones are for fills. */
 @theme inline {
   --color-bg: var(--c-bg);
+  --color-sidebar: var(--c-sidebar);
   --color-surface: var(--c-surface);
   --color-surface-2: var(--c-surface-2);
   --color-line: var(--c-line);
@@ -11,68 +14,118 @@
   --color-accent: var(--c-accent);
   --color-accent-ink: var(--c-accent-ink);
   --color-accent-soft: var(--c-accent-soft);
-  --color-danger: var(--c-danger);
-  --color-danger-soft: var(--c-danger-soft);
+  --color-accent-text: var(--c-accent-text);
+  --color-safe: var(--c-safe);
+  --color-safe-soft: var(--c-safe-soft);
+  --color-safe-text: var(--c-safe-text);
   --color-warn: var(--c-warn);
   --color-warn-soft: var(--c-warn-soft);
+  --color-warn-text: var(--c-warn-text);
+  --color-danger: var(--c-danger);
+  --color-danger-soft: var(--c-danger-soft);
+  --color-danger-text: var(--c-danger-text);
   --color-info: var(--c-info);
   --color-info-soft: var(--c-info-soft);
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Inter, Roboto, "Helvetica Neue", sans-serif;
+  --color-info-text: var(--c-info-text);
+  --color-purple: var(--c-purple);
+  --color-teal: var(--c-teal);
+  --color-indigo: var(--c-indigo);
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable", "Segoe UI", Inter, Roboto, "Helvetica Neue", sans-serif;
   --font-mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  --ease-mac: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 :root {
-  --c-bg: #f4f5f7;
+  --c-bg: #f5f5f7;
+  --c-sidebar: #ebebee;
   --c-surface: #ffffff;
-  --c-surface-2: #f8f9fa;
-  --c-line: #e4e6ea;
-  --c-ink: #16181d;
-  --c-muted: #5b616e;
-  --c-faint: #8b919c;
-  --c-accent: #0d9488;
+  --c-surface-2: #f2f2f4;
+  --c-line: rgba(0, 0, 0, 0.09);
+  --c-ink: #1d1d1f;
+  --c-muted: #6e6e73;
+  --c-faint: #8a8a8e;
+  --c-accent: #007aff;
   --c-accent-ink: #ffffff;
-  --c-accent-soft: #ccfbf1;
-  --c-danger: #dc2626;
-  --c-danger-soft: #fee2e2;
-  --c-warn: #d97706;
-  --c-warn-soft: #fef3c7;
-  --c-info: #2563eb;
-  --c-info-soft: #dbeafe;
+  --c-accent-soft: rgba(0, 122, 255, 0.12);
+  --c-accent-text: #0062cc;
+  --c-safe: #34c759;
+  --c-safe-soft: rgba(52, 199, 89, 0.15);
+  --c-safe-text: #1d7a35;
+  --c-warn: #ff9500;
+  --c-warn-soft: rgba(255, 149, 0, 0.15);
+  --c-warn-text: #a35200;
+  --c-danger: #ff3b30;
+  --c-danger-soft: rgba(255, 59, 48, 0.12);
+  --c-danger-text: #c4150b;
+  --c-info: #007aff;
+  --c-info-soft: rgba(0, 122, 255, 0.1);
+  --c-info-text: #0062cc;
+  --c-purple: #af52de;
+  --c-teal: #30b0c7;
+  --c-indigo: #5856d6;
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --c-bg: #111317;
-    --c-surface: #1a1d22;
-    --c-surface-2: #20242a;
-    --c-line: #2c3139;
-    --c-ink: #eceef1;
-    --c-muted: #a3a9b4;
-    --c-faint: #6f7682;
-    --c-accent: #2dd4bf;
-    --c-accent-ink: #062b27;
-    --c-accent-soft: #123a36;
-    --c-danger: #f87171;
-    --c-danger-soft: #3b1a1a;
-    --c-warn: #fbbf24;
-    --c-warn-soft: #3a2c10;
-    --c-info: #60a5fa;
-    --c-info-soft: #172a45;
+    --c-bg: #1e1e1e;
+    --c-sidebar: #28282a;
+    --c-surface: #2a2a2d;
+    --c-surface-2: #333336;
+    --c-line: rgba(255, 255, 255, 0.09);
+    --c-ink: #f5f5f7;
+    --c-muted: #a1a1a6;
+    --c-faint: #8a8a8f;
+    --c-accent: #0a84ff;
+    --c-accent-ink: #ffffff;
+    --c-accent-soft: rgba(10, 132, 255, 0.22);
+    --c-accent-text: #4da3ff;
+    --c-safe: #30d158;
+    --c-safe-soft: rgba(48, 209, 88, 0.18);
+    --c-safe-text: #4ade80;
+    --c-warn: #ff9f0a;
+    --c-warn-soft: rgba(255, 159, 10, 0.18);
+    --c-warn-text: #ffb340;
+    --c-danger: #ff453a;
+    --c-danger-soft: rgba(255, 69, 58, 0.18);
+    --c-danger-text: #ff6961;
+    --c-info: #0a84ff;
+    --c-info-soft: rgba(10, 132, 255, 0.18);
+    --c-info-text: #4da3ff;
+    --c-purple: #bf5af2;
+    --c-teal: #40c8e0;
+    --c-indigo: #5e5ce6;
     color-scheme: dark;
   }
 }
 
-html, body, #root {
+/* On macOS the window is transparent and the sidebar shows the system's
+   vibrancy material through it; elsewhere everything stays solid. */
+html.vibrancy {
+  background: transparent;
+}
+html.vibrancy body {
+  background: transparent;
+}
+html.vibrancy .sidebar {
+  background: transparent;
+}
+html:not(.vibrancy) body {
+  background: var(--c-bg);
+}
+
+html,
+body,
+#root {
   height: 100%;
 }
 
 body {
   margin: 0;
-  background: var(--c-bg);
   color: var(--c-ink);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 13px;
+  line-height: 1.4;
   -webkit-font-smoothing: antialiased;
   user-select: none;
   cursor: default;
@@ -86,13 +139,44 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--c-accent) 55%, transparent);
+  outline-offset: 1px;
+  border-radius: 6px;
+}
+
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 11px;
+  height: 11px;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--c-line);
+  background: color-mix(in srgb, var(--c-ink) 22%, transparent);
   border-radius: 10px;
-  border: 2px solid transparent;
+  border: 3px solid transparent;
   background-clip: padding-box;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--c-surface-2) 25%, var(--c-bg) 50%, var(--c-surface-2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+  border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

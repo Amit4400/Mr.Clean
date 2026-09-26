@@ -57,6 +57,7 @@ The Rust toolchain is pinned in `rust-toolchain.toml` (same version as CI). Taur
 - Commits: [Conventional Commits](https://www.conventionalcommits.org/) (`feat: add Flutter cache rule`, `fix(safety): …`). Small, focused commits.
 - Before pushing, run: `cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace && npm run typecheck && npm test`.
 - Fill in the PR template, including how you tested and the safety checklist.
+- Third-party GitHub Actions must be pinned to a full commit SHA with a version comment (`uses: owner/action@<sha> # v2`). GitHub-owned `actions/*` and `github/*` may use tags.
 - AI-assisted commits keep at most a one-line `Co-Authored-By:` trailer. Don't add other generated-by banners to code, docs, commits or PR descriptions.
 
 ## Style

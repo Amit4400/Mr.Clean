@@ -44,6 +44,8 @@ Only working on the UI? `npm run dev` opens it in your browser with realistic sa
    ```
 4. Push to your fork and open a pull request against `main`. Fill in the template.
 
+Changing a workflow? Pin third-party actions to a full commit SHA with a version comment, e.g. `uses: owner/action@<sha> # v2`. CodeQL flags movable tags, and Dependabot keeps the pins up to date.
+
 ## What CI checks on every pull request
 
 | Check | What it does |
