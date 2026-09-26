@@ -22,7 +22,7 @@ jobs:
     permissions:
       contents: write # only used to attach the .dmg to a release on v* tags
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@master
@@ -30,7 +30,7 @@ jobs:
           toolchain: 1.98.0 # keep in sync with rust-toolchain.toml
           targets: aarch64-apple-darwin,x86_64-apple-darwin
       - uses: Swatinem/rust-cache@v2
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -39,7 +39,7 @@ jobs:
         run: cargo test -p mrclean-core
       - name: Build universal app (Apple Silicon + Intel)
         run: npx tauri build --target universal-apple-darwin --bundles app,dmg
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: Mr.Clean-macOS
           path: target/universal-apple-darwin/release/bundle/dmg/*.dmg

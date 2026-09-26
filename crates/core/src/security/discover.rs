@@ -69,7 +69,7 @@ pub fn discover(env: &Env, roots: &[PathBuf], iocs: &Iocs, cancel: &Cancel) -> D
                         || (name.starts_with('.') && !hidden_keep)
                         || (at_home && SKIP_AT_HOME.contains(&name.as_ref()));
                     if prune && c.file_type.is_dir() {
-                        c.read_children_path = None;
+                        c.read_children = None;
                     }
                 }
             });
