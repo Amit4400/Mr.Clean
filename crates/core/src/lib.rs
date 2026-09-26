@@ -4,6 +4,7 @@
 pub mod bigfiles;
 pub mod cleaner;
 pub mod env;
+pub mod explain;
 pub mod fsutil;
 pub mod icons;
 pub mod memory;

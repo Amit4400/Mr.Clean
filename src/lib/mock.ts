@@ -146,6 +146,18 @@ export async function mock<T>(cmd: string, args?: Record<string, unknown>): Prom
     case "device_info": return r({ name: "MacBook Pro", chip: "Apple M2 Pro", memory_bytes: 16 * GB, os_label: "macOS Sonoma 14.5", kind: "laptop" }, 80);
     case "memory_breakdown": return r({ total: 16 * GB, apps: 4.2 * GB, wired: 1.1 * GB, compressed: 0.5 * GB, free: 10.2 * GB }, 20);
     case "app_icon": return r(null, 0);
+    case "folder_explain": {
+      const name = String(a.path).split("/").pop() ?? "";
+      const known: Record<string, [string, string, string]> = {
+        Library: ["Your Library", "Settings, caches and data for your apps and macOS. Never delete the folder itself; the Clean page clears the safe parts inside it.", "leave_it"],
+        Downloads: ["Downloads", "Files you downloaded. Often full of old installers (.dmg, .pkg, .zip) you no longer need.", "yours"],
+        Movies: ["Movies", "Your videos and screen recordings, often large.", "yours"],
+        Documents: ["Documents", "Your documents. Check before deleting anything here.", "yours"],
+        Desktop: ["Desktop", "Files on your desktop.", "yours"],
+      };
+      const k = known[name];
+      return r(k ? { title: k[0], text: k[1], advice: k[2] } : null, 50);
+    }
     case "home_dir": return r(HOME, 0);
     case "has_full_disk_access": return r(false, 0);
     case "cleaner_scan": return r(cleanerScan(), 1200);

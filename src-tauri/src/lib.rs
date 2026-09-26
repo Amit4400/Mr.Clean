@@ -117,6 +117,12 @@ async fn app_icon(bundle: Option<String>, name: Option<String>) -> Res<Option<St
     .await
 }
 
+/// "What is this folder?" for the Files page. Read-only.
+#[tauri::command]
+fn folder_explain(path: String) -> Option<mrclean_core::explain::Explanation> {
+    mrclean_core::explain::explain(&Env::detect(), std::path::Path::new(&path))
+}
+
 #[tauri::command]
 fn home_dir() -> String {
     Env::detect().home.display().to_string()
@@ -306,6 +312,7 @@ pub fn run() {
             memory_breakdown,
             app_icon,
             home_dir,
+            folder_explain,
             has_full_disk_access,
             open_full_disk_access_settings,
             cancel_scan,

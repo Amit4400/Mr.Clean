@@ -5,6 +5,7 @@ import { mock } from "./mock";
 import type {
   CleanerScan,
   DeviceInfo,
+  Explanation,
   MemoryBreakdown,
   CleanRequest,
   DeleteMode,
@@ -38,6 +39,8 @@ export const api = {
   appIcon: (q: { bundle?: string | null; name?: string }) =>
     call<string | null>("app_icon", { bundle: q.bundle ?? null, name: q.name ?? null }),
   homeDir: () => call<string>("home_dir"),
+  /** Plain-English "what is this folder?" (null when unknown). */
+  folderExplain: (path: string) => call<Explanation | null>("folder_explain", { path }),
   hasFullDiskAccess: () => call<boolean>("has_full_disk_access"),
   cancelScan: () => call<void>("cancel_scan"),
   reveal: (path: string) => call<void>("reveal", { path }),

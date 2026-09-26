@@ -219,3 +219,11 @@ export interface ScanProgress {
   files: number;
   bytes: number;
 }
+
+export type Advice = "safe_to_delete" | "use_the_app" | "leave_it" | "yours" | "check_first";
+
+export interface Explanation {
+  title: string;
+  text: string;
+  advice: Advice;
+}
