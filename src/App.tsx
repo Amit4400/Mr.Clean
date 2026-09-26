@@ -102,8 +102,11 @@ function Shell() {
               onClick={() => go(n.id)}
               extra={
                 n.id === "security" && alerts > 0 ? (
-                  <span className="rounded-full bg-danger px-1.5 text-[11px] font-semibold leading-[18px] text-white" aria-label={`${alerts} alerts`}>
-                    {alerts}
+                  <span
+                    className="flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 text-[11px] font-semibold leading-none text-white shadow-[0_2px_6px_-1px_rgba(239,68,68,0.55)]"
+                    aria-label={`${alerts} alerts`}
+                  >
+                    {alerts > 9 ? "9+" : alerts}
                   </span>
                 ) : undefined
               }
