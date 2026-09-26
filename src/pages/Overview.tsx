@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { DeviceArt } from "../components/DeviceArt";
 import { StorageOrb } from "../components/StorageOrb";
-import { AnimatedNumber, Card, cx } from "../components/ui";
+import { AnimatedNumber, Card, SoftTile as Tile, cx } from "../components/ui";
 import { api } from "../lib/api";
 import { bytes } from "../lib/format";
 import { greeting, health } from "../lib/health";
@@ -205,23 +205,6 @@ export default function Overview() {
         </Card>
       </motion.div>
     </motion.div>
-  );
-}
-
-/** A tinted, duotone icon in a soft rounded tile. */
-function Tile({ icon: Icon, color, size, round }: { icon: LucideIcon; color: string; size: number; round?: boolean }) {
-  return (
-    <span
-      className={cx("flex shrink-0 items-center justify-center shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]", round ? "rounded-full" : "rounded-[13px]")}
-      style={{
-        width: size,
-        height: size,
-        color,
-        background: `linear-gradient(145deg, color-mix(in srgb, ${color} 22%, transparent), color-mix(in srgb, ${color} 8%, transparent))`,
-      }}
-    >
-      <Icon style={{ width: size * 0.46, height: size * 0.46 }} strokeWidth={2} fill="currentColor" fillOpacity={0.18} aria-hidden />
-    </span>
   );
 }
 

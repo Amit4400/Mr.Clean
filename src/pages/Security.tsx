@@ -1,27 +1,29 @@
-import { Archive, ExternalLink, Info, RotateCcw, ShieldAlert, ShieldCheck, StopCircle } from "lucide-react";
+import { Archive, Bug, CircleCheck, ExternalLink, FileCode2, GitBranch, Info, KeyRound, Package, Power, RotateCcw, ShieldAlert, ShieldCheck, StopCircle, SquareTerminal, type LucideIcon } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
 
-import { Badge, Button, Card, Empty, Page, Skeleton, cx, type Tone } from "../components/ui";
+import { Badge, Button, Card, Empty, Page, Skeleton, SoftTile, cx, type Tone } from "../components/ui";
 import { api } from "../lib/api";
 import { ago, tildify } from "../lib/format";
 import { useStore } from "../lib/store";
-import type { Area, Finding, QuarantineEntry, Severity } from "../lib/types";
+import type { Area, Finding, QuarantineEntry, SecurityReport, Severity } from "../lib/types";
 
-const SEV: Record<Severity, { label: string; tone: Tone; bar: string }> = {
-  high: { label: "High", tone: "danger", bar: "bg-danger" },
-  medium: { label: "Medium", tone: "warn", bar: "bg-warn" },
-  low: { label: "Low", tone: "info", bar: "bg-info" },
-  info: { label: "Info", tone: "neutral", bar: "bg-faint" },
+const SEV: Record<Severity, { label: string; tone: Tone; color: string }> = {
+  high: { label: "High", tone: "danger", color: "var(--c-danger)" },
+  medium: { label: "Medium", tone: "warn", color: "var(--c-warn)" },
+  low: { label: "Low", tone: "info", color: "var(--c-info)" },
+  info: { label: "Info", tone: "neutral", color: "var(--c-faint)" },
 };
-const AREA: Record<Area, string> = {
-  known_malware: "Known malware",
-  npm: "npm packages",
-  git: "Git",
-  startup: "Startup items",
-  shell_profile: "Shell profile",
-  secrets: "Exposed secrets",
-  project_code: "Project code",
+
+// Every area the scanner checks, in the order shown under "What we checked".
+const AREA: Record<Area, { label: string; checks: string; icon: LucideIcon; color: string }> = {
+  known_malware: { label: "Known malware", checks: "Shai-Hulud, BeaverTail and other known folders", icon: Bug, color: "var(--c-danger)" },
+  npm: { label: "npm packages", checks: "Known bad versions and risky install scripts", icon: Package, color: "var(--c-danger)" },
+  project_code: { label: "Project code", checks: "Hidden code in config files", icon: FileCode2, color: "var(--c-warn)" },
+  startup: { label: "Startup items", checks: "Launch agents and login items", icon: Power, color: "var(--c-purple)" },
+  shell_profile: { label: "Shell profiles", checks: ".zshrc, .bashrc and friends", icon: SquareTerminal, color: "var(--c-teal)" },
+  git: { label: "Git", checks: "Hooks, identity and commits", icon: GitBranch, color: "var(--c-info)" },
+  secrets: { label: "Exposed tokens", checks: "Tokens in dotfiles and shell history", icon: KeyRound, color: "var(--c-warn)" },
 };
 
 export default function Security() {
@@ -74,104 +76,123 @@ export default function Security() {
 
   return (
     <Page
-        title="Security"
-        subtitle="Looks for malware that targets developers: npm worms, fake-interview projects, startup items, git hooks and exposed tokens."
-        actions={
-          scanning ? (
-            <Button onClick={() => api.cancelScan()}>
-              <StopCircle className="size-3.5" aria-hidden /> Stop
+      title="Security"
+      subtitle="Looks for malware that targets developers: npm worms, fake-interview projects, startup items, git hooks and exposed tokens."
+      actions={
+        scanning ? (
+          <Button onClick={() => api.cancelScan()}>
+            <StopCircle className="size-3.5" aria-hidden /> Stop
+          </Button>
+        ) : (
+          security && (
+            <Button onClick={scan}>
+              <ShieldCheck className="size-3.5" aria-hidden /> Scan again
             </Button>
-          ) : (
-            security && (
-              <Button onClick={scan}>
-                <ShieldCheck className="size-3.5" aria-hidden /> Scan again
-              </Button>
-            )
           )
-        }
+        )
+      }
     >
-
       {scanning && (
-        <>
-          <p className="mb-3 px-1 text-[12.5px] text-muted" aria-live="polite">
+        <Card className="p-5">
+          <p className="mb-3 text-[13px] text-muted" aria-live="polite">
             Checking startup items, shell profiles, git repositories and npm packages…
           </p>
           <Skeleton rows={5} />
-        </>
+        </Card>
       )}
 
       {!security && !scanning && (
-        <Empty
-          icon={<ShieldCheck className="size-7" aria-hidden />}
-          title="Check this Mac for developer-targeted malware"
-          action={
-            <Button variant="primary" onClick={scan}>
-              Scan
-            </Button>
-          }
-        >
-          Read-only scan. Nothing is changed unless you choose to quarantine an item, and quarantined items can be restored.
-        </Empty>
+        <Card>
+          <Empty
+            icon={<ShieldCheck className="size-7" aria-hidden />}
+            title="Check this Mac for developer-targeted malware"
+            action={
+              <Button variant="primary" onClick={scan}>
+                Scan
+              </Button>
+            }
+          >
+            Read-only scan. Nothing is changed unless you choose to quarantine an item, and quarantined items can be restored.
+          </Empty>
+        </Card>
       )}
 
       {security && !scanning && (
         <>
-          <Card className={cx("mb-4 flex items-center gap-4 p-5", serious > 0 ? "border-danger/40" : "border-accent/40")}>
-            <div className={cx("rounded-2xl p-3", serious > 0 ? "bg-danger-soft text-danger" : "bg-accent-soft text-accent")}>
-              {serious > 0 ? <ShieldAlert className="size-6" aria-hidden /> : <ShieldCheck className="size-6" aria-hidden />}
-            </div>
-            <div className="flex-1">
-              <div className="text-lg font-semibold">{serious > 0 ? `${serious} item${serious > 1 ? "s" : ""} need your attention` : "No threats found"}</div>
-              <div className="text-[11.5px] text-muted">
-                {security.scanned_repos} git repos, {security.scanned_projects} projects and {security.scanned_packages.toLocaleString()} npm packages checked in{" "}
-                {(security.duration_ms / 1000).toFixed(1)} s
+          {/* Summary with severity counts that double as filters. */}
+          <Card className="relative mb-4 overflow-hidden p-5">
+            <div
+              className="pointer-events-none absolute -left-12 -top-16 size-48 rounded-full"
+              style={{ background: `radial-gradient(circle, color-mix(in srgb, ${serious ? "var(--c-danger)" : "var(--c-safe)"} 22%, transparent), transparent 65%)` }}
+              aria-hidden
+            />
+            <div className="relative flex items-center gap-4">
+              <SoftTile icon={serious > 0 ? ShieldAlert : ShieldCheck} color={serious > 0 ? "var(--c-danger)" : "var(--c-safe)"} size={56} round />
+              <div className="min-w-0 flex-1">
+                <div className="text-[20px] font-bold tracking-[-0.01em]">{serious > 0 ? `${serious} item${serious > 1 ? "s" : ""} need your attention` : "No threats found"}</div>
+                <div className="text-[12.5px] text-muted">
+                  {security.scanned_repos} git repos, {security.scanned_projects} projects and {security.scanned_packages.toLocaleString()} npm packages checked in{" "}
+                  {(security.duration_ms / 1000).toFixed(1)} s
+                </div>
+              </div>
+              <div className="flex gap-2" role="group" aria-label="Show severities">
+                {(Object.keys(SEV) as Severity[]).reverse().map((s) => (
+                  <button
+                    key={s}
+                    aria-pressed={show.has(s)}
+                    onClick={() =>
+                      setShow((cur) => {
+                        const n = new Set(cur);
+                        if (n.has(s)) n.delete(s);
+                        else n.add(s);
+                        return n;
+                      })
+                    }
+                    className={cx("w-[68px] cursor-pointer rounded-[12px] border px-2 py-2 text-center transition", show.has(s) ? "border-transparent" : "border-line opacity-45")}
+                    style={show.has(s) ? { background: `color-mix(in srgb, ${SEV[s].color} 14%, transparent)` } : undefined}
+                  >
+                    <div className="tabular text-[18px] font-bold leading-tight" style={{ color: security.counts[s] ? SEV[s].color : undefined }}>
+                      {security.counts[s]}
+                    </div>
+                    <div className="text-[11px] text-muted">{SEV[s].label}</div>
+                  </button>
+                ))}
               </div>
             </div>
-            <div className="flex gap-1.5">
-              {(Object.keys(SEV) as Severity[]).reverse().map((s) => (
-                <button
-                  key={s}
-                  onClick={() =>
-                    setShow((cur) => {
-                      const n = new Set(cur);
-                      if (n.has(s)) n.delete(s);
-                      else n.add(s);
-                      return n;
-                    })
-                  }
-                  className={cx("rounded-lg border px-2.5 py-1.5 text-center transition", show.has(s) ? "border-line bg-surface-2" : "border-transparent opacity-50")}
-                >
-                  <div className="tabular text-[13px] font-semibold">{security.counts[s]}</div>
-                  <div className="text-[11px] text-muted">{SEV[s].label}</div>
-                </button>
-              ))}
-            </div>
+            {serious > 0 && (
+              <div className="relative mt-4 flex gap-2 rounded-[12px] bg-info-soft px-3 py-2 text-[12.5px]">
+                <Info className="mt-0.5 size-3.5 shrink-0 text-info-text" aria-hidden />
+                <div className="text-muted">
+                  <b className="text-ink">If something here is real:</b> disconnect from sensitive work, quarantine the item, then rotate your GitHub, npm and cloud tokens from
+                  another device. On GitHub, check <i>Settings → Security log</i> for anything you didn't do.
+                </div>
+              </div>
+            )}
           </Card>
 
-          {serious > 0 && (
-            <Card className="mb-4 flex gap-3 bg-info-soft p-3.5 text-[13px]">
-              <Info className="mt-0.5 size-4 shrink-0 text-info-text" aria-hidden />
-              <div className="text-muted">
-                <b className="text-ink">If something here is real:</b> disconnect from sensitive work, quarantine the item, then rotate your GitHub, npm and cloud tokens
-                from another device. On GitHub, check <i>Settings → Security log</i> and your repositories for commits or repos you didn't make.
-              </div>
+          <div className="grid grid-cols-[minmax(0,1fr)_280px] items-start gap-5">
+            <Card className="divide-y divide-line overflow-hidden">
+              {visible.length === 0 && (
+                <div className="flex flex-col items-center gap-2 py-10 text-center text-[13px] text-muted">
+                  <CircleCheck className="size-6 text-safe" aria-hidden />
+                  {security.findings.length ? "Nothing to show with these filters." : "Nothing suspicious found. See what we checked on the right."}
+                </div>
+              )}
+              {visible.map((f, i) => (
+                <motion.div key={f.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i, 10) * 0.04, duration: 0.3 }}>
+                  <FindingRow f={f} home={home} quarantined={done.has(f.id)} onQuarantine={() => doQuarantine(f)} />
+                </motion.div>
+              ))}
             </Card>
-          )}
 
-          <div className="space-y-2.5">
-            {visible.length === 0 && <div className="py-8 text-center text-[13px] text-muted">Nothing to show with these filters.</div>}
-            {visible.map((f, i) => (
-              <motion.div key={f.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i, 10) * 0.03, duration: 0.25 }}>
-                <FindingCard f={f} home={home} quarantined={done.has(f.id)} onQuarantine={() => doQuarantine(f)} />
-              </motion.div>
-            ))}
+            <Checked report={security} />
           </div>
         </>
       )}
 
       {quarantine.length > 0 && (
-        <section className="mt-8">
-          <h2 className="mb-2 flex items-center gap-2 px-1 text-[13px] font-semibold">
+        <section className="mt-6">
+          <h2 className="mb-2 flex items-center gap-2 px-1 text-[15px] font-semibold">
             <Archive className="size-4 text-muted" /> Quarantine
           </h2>
           <Card className="divide-y divide-line">
@@ -193,32 +214,74 @@ export default function Security() {
         </section>
       )}
 
-      <p className="mt-8 text-[11.5px] text-faint">
-        Mr.Clean spots known developer-targeted threats and suspicious patterns. It complements, but doesn't replace, a full antivirus such as XProtect or your company's endpoint protection.
+      <p className="mt-6 text-[11.5px] text-faint">
+        Mr.Clean spots known developer-targeted threats and suspicious patterns. It complements, but doesn't replace, a full antivirus such as XProtect or your company's endpoint
+        protection.
       </p>
     </Page>
   );
 }
 
-function FindingCard({ f, home, quarantined, onQuarantine }: { f: Finding; home: string | null; quarantined: boolean; onQuarantine: () => void }) {
-  const s = SEV[f.severity];
+/** Every area the scan covered, with a tick or the number of issues found. */
+function Checked({ report }: { report: SecurityReport }) {
+  const issues = (a: Area) => report.findings.filter((f) => f.area === a && f.severity !== "info").length;
   return (
-    <Card className={cx("relative overflow-hidden", quarantined && "opacity-50")}>
-      <div className={cx("absolute inset-y-0 left-0 w-1", s.bar)} />
-      <div className="py-3.5 pl-5 pr-4">
-        <div className="flex items-start gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge tone={s.tone}>{s.label}</Badge>
-              <span className="text-[11.5px] text-faint">{AREA[f.area]}</span>
-            </div>
-            <div className="mt-1 font-semibold">{f.title}</div>
-            <p className="mt-0.5 text-[13px] text-muted">{f.detail}</p>
+    <Card className="sticky top-4 p-4">
+      <h2 className="mb-2 text-[15px] font-semibold">What we checked</h2>
+      <ul className="space-y-0.5">
+        {(Object.keys(AREA) as Area[]).map((a) => {
+          const n = issues(a);
+          const A = AREA[a];
+          return (
+            <li key={a} className="flex items-center gap-2.5 py-1.5">
+              <SoftTile icon={A.icon} color={A.color} size={30} />
+              <div className="min-w-0 flex-1">
+                <div className="text-[12.5px] font-medium">{A.label}</div>
+                <div className="truncate text-[11px] text-faint">{A.checks}</div>
+              </div>
+              {n > 0 ? (
+                <span className="text-[11.5px] font-semibold text-danger-text">
+                  {n} issue{n > 1 ? "s" : ""}
+                </span>
+              ) : (
+                <CircleCheck className="size-4 shrink-0 text-safe" aria-label="No issues" />
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </Card>
+  );
+}
+
+function FindingRow({ f, home, quarantined, onQuarantine }: { f: Finding; home: string | null; quarantined: boolean; onQuarantine: () => void }) {
+  const [open, setOpen] = useState(false);
+  const A = AREA[f.area];
+  return (
+    <div className={cx(quarantined && "opacity-50")}>
+      <div className="flex items-start gap-3 px-4 py-3.5">
+        <SoftTile icon={A.icon} color={SEV[f.severity].color} size={40} />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[13.5px] font-semibold">{f.title}</span>
+            <Badge tone={SEV[f.severity].tone}>{SEV[f.severity].label}</Badge>
           </div>
-          <div className="flex shrink-0 gap-1.5">
+          <p className="mt-0.5 text-[12.5px] text-muted">{f.detail}</p>
+          {f.path && (
+            <div className="selectable mt-1 truncate font-mono text-[11px] text-faint" title={f.path}>
+              {tildify(f.path, home)}
+              {f.line ? `:${f.line}` : ""}
+            </div>
+          )}
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            {(f.evidence || f.advice) && (
+              <Button size="sm" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+                {open ? "Hide details" : "View details"}
+              </Button>
+            )}
             {f.path && (
-              <Button size="sm" variant="ghost" onClick={() => api.reveal(f.path!)} title="Show in Finder">
-                <ExternalLink className="size-3.5" />
+              <Button size="sm" onClick={() => api.reveal(f.path!)}>
+                <ExternalLink className="size-3.5" aria-hidden /> Show in Finder
               </Button>
             )}
             {f.can_quarantine && (
@@ -227,16 +290,14 @@ function FindingCard({ f, home, quarantined, onQuarantine }: { f: Finding; home:
               </Button>
             )}
           </div>
+          {open && (f.evidence || f.advice) && (
+            <div className="mt-2.5">
+              {f.evidence && <pre className="selectable overflow-x-auto whitespace-pre-wrap break-all rounded-[10px] bg-ink/[0.05] px-3 py-2 font-mono text-[11.5px]">{f.evidence}</pre>}
+              {f.advice && <p className="mt-2 text-[12px] text-muted">→ {f.advice}</p>}
+            </div>
+          )}
         </div>
-        {f.path && (
-          <div className="selectable mt-2 truncate font-mono text-[11.5px] text-faint" title={f.path}>
-            {tildify(f.path, home)}
-            {f.line ? `:${f.line}` : ""}
-          </div>
-        )}
-        {f.evidence && <pre className="selectable mt-2 overflow-x-auto whitespace-pre-wrap break-all rounded-md bg-surface-2 px-2.5 py-1.5 font-mono text-[11.5px]">{f.evidence}</pre>}
-        {f.advice && <p className="mt-2 text-[11.5px] text-muted">→ {f.advice}</p>}
       </div>
-    </Card>
+    </div>
   );
 }

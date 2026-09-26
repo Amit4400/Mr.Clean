@@ -40,7 +40,7 @@ test("dev cleaner pre-selects only safe items and confirms before cleaning", asy
   // Info-only items can't be selected at all.
   await expect(page.getByRole("checkbox", { name: "Docker disk image" })).toBeDisabled();
 
-  await page.getByRole("main").getByRole("button", { name: "Clean", exact: true }).click();
+  await page.getByRole("button", { name: /Clean selected/ }).click();
   await expect(page.getByRole("button", { name: "Move to Trash" })).toBeVisible();
   await page.getByRole("button", { name: "Cancel" }).click();
   await expect(page.getByRole("button", { name: "Move to Trash" })).toBeHidden();
@@ -55,7 +55,7 @@ test("large files: protected folders can't be selected", async ({ page }) => {
   await expect(page.getByText(/in [\d,]+ files/)).toBeVisible({ timeout: 10_000 });
   await expect(page.getByRole("checkbox", { name: "Documents" })).toBeDisabled();
   await expect(page.getByRole("checkbox", { name: "notes.txt" })).toBeEnabled();
-  await page.getByRole("radio", { name: "Biggest files" }).click();
+  await page.getByRole("button", { name: "Biggest files" }).click();
   await expect(page.getByText("Xcode_15.4.xip", { exact: true })).toBeVisible();
   expect(errors).toEqual([]);
 });

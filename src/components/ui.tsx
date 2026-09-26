@@ -1,6 +1,6 @@
-import { Loader2 } from "lucide-react";
+import { Loader2, type LucideProps } from "lucide-react";
 import { AnimatePresence, animate, motion, useReducedMotion } from "motion/react";
-import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ComponentType, type ReactNode } from "react";
 
 export function cx(...c: (string | false | null | undefined)[]) {
   return c.filter(Boolean).join(" ");
@@ -23,11 +23,11 @@ export const toneFill: Record<Tone, string> = {
 /** A page: big title + subtitle on the left, actions on the right. */
 export function Page({ title, subtitle, actions, children }: { title: string; subtitle?: ReactNode; actions?: ReactNode; children: ReactNode }) {
   return (
-    <div className="mx-auto max-w-[1080px] px-8 pb-10 pt-7">
-      <header data-tauri-drag-region className="mb-6 flex items-start gap-4">
+    <div className="mx-auto max-w-[1180px] px-8 pb-8 pt-6">
+      <header data-tauri-drag-region className="mb-5 flex items-start gap-4">
         <div data-tauri-drag-region className="min-w-0 flex-1">
-          <h1 className="text-[24px] font-bold tracking-[-0.02em]">{title}</h1>
-          {subtitle && <p className="mt-1 max-w-[70ch] text-[13px] text-muted">{subtitle}</p>}
+          <h1 className="text-[28px] font-bold leading-tight tracking-[-0.03em]">{title}</h1>
+          {subtitle && <p className="mt-1 max-w-[75ch] text-[14px] text-muted">{subtitle}</p>}
         </div>
         {actions && <div className="flex shrink-0 items-center gap-2 pt-1">{actions}</div>}
       </header>
@@ -64,7 +64,7 @@ const variants: Record<Variant, string> = {
   primary:
     "bg-gradient-to-b from-[var(--c-accent-bright)] to-[var(--c-accent)] text-white shadow-[0_4px_14px_-4px_rgba(22,163,74,0.55)] hover:brightness-105 active:brightness-95",
   secondary:
-    "bg-surface text-ink border border-line shadow-[0_1px_2px_rgba(15,23,42,0.06)] hover:bg-surface-2 active:brightness-95",
+    "bg-surface text-ink border border-[var(--c-glass-border)] shadow-[inset_0_1px_0_var(--c-glass-shine),0_1px_3px_rgba(15,23,42,0.07)] backdrop-blur-xl hover:brightness-[1.03] active:brightness-95",
   danger: "bg-danger text-white shadow-[0_1px_1px_rgba(0,0,0,0.12)] hover:brightness-105 active:brightness-95",
   ghost: "text-accent-text hover:bg-accent-soft active:brightness-95",
 };
@@ -357,6 +357,41 @@ export function Modal({ open, title, children, footer, onClose }: { open: boolea
 // ---------------------------------------------------------- glass pieces
 
 /** Rounded square with a soft tinted background, holding an icon. */
+/** A tinted, duotone icon in a soft rounded tile (the look used across the app). */
+export function SoftTile({ icon: Icon, color, size = 40, round }: { icon: ComponentType<LucideProps>; color: string; size?: number; round?: boolean }) {
+  return (
+    <span
+      className={cx("flex shrink-0 items-center justify-center shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]", round ? "rounded-full" : "rounded-[30%]")}
+      style={{
+        width: size,
+        height: size,
+        color,
+        background: `linear-gradient(145deg, color-mix(in srgb, ${color} 22%, transparent), color-mix(in srgb, ${color} 8%, transparent))`,
+      }}
+    >
+      <Icon style={{ width: size * 0.46, height: size * 0.46 }} strokeWidth={2} fill="currentColor" fillOpacity={0.18} aria-hidden />
+    </span>
+  );
+}
+
+/** Rounded filter chip; pressed state is announced. */
+export function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      aria-pressed={active}
+      onClick={onClick}
+      className={cx(
+        "inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full px-3.5 text-[12.5px] font-medium transition-colors",
+        active
+          ? "bg-gradient-to-b from-[var(--c-accent-bright)] to-[var(--c-accent)] text-white shadow-[0_4px_12px_-4px_rgba(22,163,74,0.6)]"
+          : "glass text-muted hover:text-ink",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
 export function IconTile({ color, size = 36, round, children }: { color: string; size?: number; round?: boolean; children: ReactNode }) {
   return (
     <span
