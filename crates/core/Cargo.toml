@@ -4,6 +4,7 @@ description = "Scanning, cleaning and safety logic for Mr.Clean (no UI)"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish = false
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }

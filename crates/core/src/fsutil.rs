@@ -60,12 +60,18 @@ pub fn disk_bytes(meta: &Metadata) -> u64 {
 
 /// Total on-disk size of a file or folder. Never follows symlinks.
 pub fn path_size(path: &Path, cancel: Option<&Cancel>, progress: Option<&Progress>) -> u64 {
-    let Ok(meta) = std::fs::symlink_metadata(path) else { return 0 };
+    let Ok(meta) = std::fs::symlink_metadata(path) else {
+        return 0;
+    };
     if !meta.is_dir() {
         return disk_bytes(&meta);
     }
     let mut total = disk_bytes(&meta);
-    for entry in jwalk::WalkDir::new(path).follow_links(false).skip_hidden(false).min_depth(1) {
+    for entry in jwalk::WalkDir::new(path)
+        .follow_links(false)
+        .skip_hidden(false)
+        .min_depth(1)
+    {
         if cancel.is_some_and(|c| c.is_cancelled()) {
             break;
         }
@@ -88,7 +94,9 @@ pub fn modified_secs(path: &Path) -> Option<i64> {
 }
 
 pub fn to_unix(t: SystemTime) -> Option<i64> {
-    t.duration_since(SystemTime::UNIX_EPOCH).ok().map(|d| d.as_secs() as i64)
+    t.duration_since(SystemTime::UNIX_EPOCH)
+        .ok()
+        .map(|d| d.as_secs() as i64)
 }
 
 pub fn now_secs() -> i64 {

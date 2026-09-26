@@ -89,7 +89,11 @@ pub fn xcode_installed(env: &Env) -> bool {
 fn all_targets(env: &Env, rules: &[Rule]) -> Vec<(&'static str, PathBuf)> {
     rules
         .iter()
-        .flat_map(|r| r.targets.iter().filter_map(move |t| env.expand(t.raw()).map(|p| (r.id, p))))
+        .flat_map(|r| {
+            r.targets
+                .iter()
+                .filter_map(move |t| env.expand(t.raw()).map(|p| (r.id, p)))
+        })
         .collect()
 }
 
@@ -127,7 +131,12 @@ pub fn scan(env: &Env, cancel: &Cancel, progress: &Progress) -> CleanerScan {
     let rules = rules::rules_for(env.os);
     let owned = all_targets(env, &rules);
     let xcode = (env.os == Os::Mac).then(|| xcode_installed(env));
-    let mut result = CleanerScan { rules: vec![], total_bytes: 0, safe_bytes: 0, xcode_installed: xcode };
+    let mut result = CleanerScan {
+        rules: vec![],
+        total_bytes: 0,
+        safe_bytes: 0,
+        xcode_installed: xcode,
+    };
 
     for rule in &rules {
         if cancel.is_cancelled() {
@@ -136,7 +145,10 @@ pub fn scan(env: &Env, cancel: &Cancel, progress: &Progress) -> CleanerScan {
         let mut items: Vec<Item> = rule_items(env, rule, &owned)
             .into_iter()
             .map(|p| Item {
-                name: p.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default(),
+                name: p
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_default(),
                 bytes: path_size(&p, Some(cancel), Some(progress)),
                 modified: modified_secs(&p),
                 path: p.display().to_string(),
@@ -158,7 +170,12 @@ pub fn scan(env: &Env, cancel: &Cancel, progress: &Progress) -> CleanerScan {
         if rule.safety == Safety::Safe {
             result.safe_bytes += total;
         }
-        result.rules.push(RuleScan { rule: rule.into(), items, total_bytes: total, note });
+        result.rules.push(RuleScan {
+            rule: rule.into(),
+            items,
+            total_bytes: total,
+            note,
+        });
     }
     result.rules.sort_by_key(|a| std::cmp::Reverse(a.total_bytes));
     result
@@ -198,7 +215,11 @@ pub fn clean(env: &Env, requests: &[CleanRequest], mode: DeleteMode) -> DeleteRe
                 .collect(),
         };
         let roots = rule_roots(env, rule);
-        let mode = if rule.always_permanent { DeleteMode::Permanent } else { mode };
+        let mode = if rule.always_permanent {
+            DeleteMode::Permanent
+        } else {
+            mode
+        };
         for p in chosen {
             match guard.check_cache(&p, &roots) {
                 Ok(checked) => remove_checked(&checked, mode, &mut report),
@@ -225,7 +246,10 @@ mod tests {
         let h = &env.home;
         write(&h.join("Library/Developer/Xcode/DerivedData/App-1/Build/x.o"), 50_000);
         write(&h.join("Library/Developer/Xcode/DerivedData/App-2/Index/y"), 20_000);
-        write(&h.join("Library/Developer/CoreSimulator/Devices/UUID-1/data/app"), 80_000);
+        write(
+            &h.join("Library/Developer/CoreSimulator/Devices/UUID-1/data/app"),
+            80_000,
+        );
         write(&h.join("Library/Caches/Yarn/v6/pkg.tgz"), 30_000);
         write(&h.join("Library/Caches/com.someapp/cache.db"), 10_000);
         write(&h.join(".npm/_cacache/content/abc"), 40_000);
@@ -255,10 +279,16 @@ mod tests {
     fn clean_removes_only_selected_rule_items() {
         let (_d, env) = fake_mac();
         let h = env.home.clone();
-        let req = [CleanRequest { rule_id: "xcode-derived-data".into(), paths: None }];
+        let req = [CleanRequest {
+            rule_id: "xcode-derived-data".into(),
+            paths: None,
+        }];
         let r = clean(&env, &req, DeleteMode::Permanent);
         assert_eq!(r.removed.len(), 2, "{:?}", r.failed);
-        assert!(h.join("Library/Developer/Xcode/DerivedData").exists(), "folder itself is kept");
+        assert!(
+            h.join("Library/Developer/Xcode/DerivedData").exists(),
+            "folder itself is kept"
+        );
         assert!(!h.join("Library/Developer/Xcode/DerivedData/App-1").exists());
         assert!(h.join("Library/Developer/CoreSimulator/Devices/UUID-1").exists());
         assert!(h.join("Documents/keep.txt").exists());
@@ -282,7 +312,10 @@ mod tests {
     fn report_only_rules_are_never_deleted() {
         let (_d, env) = fake_mac();
         write(&env.home.join("go/pkg/mod/x/y"), 1000);
-        let req = [CleanRequest { rule_id: "go-mod".into(), paths: None }];
+        let req = [CleanRequest {
+            rule_id: "go-mod".into(),
+            paths: None,
+        }];
         let r = clean(&env, &req, DeleteMode::Permanent);
         assert!(r.removed.is_empty());
         assert!(env.home.join("go/pkg/mod/x/y").exists());

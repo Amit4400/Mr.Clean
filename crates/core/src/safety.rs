@@ -67,8 +67,22 @@ const LIBRARY_USER_ALLOWED: &[&str] = &["Library/Caches", "Library/Logs", "Libra
 
 /// Absolute system locations nothing may delete.
 const SYSTEM: &[&str] = &[
-    "/System", "/usr", "/bin", "/sbin", "/etc", "/private", "/Library/Keychains",
-    "/Applications", "/boot", "/dev", "/proc", "/sys", "/var", "/lib", "/lib64", "/opt",
+    "/System",
+    "/usr",
+    "/bin",
+    "/sbin",
+    "/etc",
+    "/private",
+    "/Library/Keychains",
+    "/Applications",
+    "/boot",
+    "/dev",
+    "/proc",
+    "/sys",
+    "/var",
+    "/lib",
+    "/lib64",
+    "/opt",
 ];
 
 pub struct Guard<'a> {
@@ -167,7 +181,9 @@ impl<'a> Guard<'a> {
             }
         }
         if p.starts_with(self.under_home("Library"))
-            && !LIBRARY_USER_ALLOWED.iter().any(|rel| p.starts_with(self.under_home(rel)))
+            && !LIBRARY_USER_ALLOWED
+                .iter()
+                .any(|rel| p.starts_with(self.under_home(rel)))
         {
             return Err(SafetyError::Protected(
                 "~/Library (app data — use the cleaner instead)".into(),
@@ -210,7 +226,10 @@ pub struct Failed {
 
 impl DeleteReport {
     pub fn fail(&mut self, path: &Path, error: impl ToString) {
-        self.failed.push(Failed { path: path.display().to_string(), error: error.to_string() });
+        self.failed.push(Failed {
+            path: path.display().to_string(),
+            error: error.to_string(),
+        });
     }
 
     pub fn merge(&mut self, other: DeleteReport) {
@@ -237,7 +256,10 @@ pub fn remove_checked(path: &Path, mode: DeleteMode, report: &mut DeleteReport) 
     match result {
         Ok(()) => {
             report.bytes_freed += bytes;
-            report.removed.push(Removed { path: path.display().to_string(), bytes });
+            report.removed.push(Removed {
+                path: path.display().to_string(),
+                bytes,
+            });
         }
         Err(e) => report.fail(path, e),
     }
@@ -287,7 +309,9 @@ mod tests {
         let (_d, env) = setup();
         let g = Guard::new(&env);
         let root = env.home.join("Library/Developer/Xcode/DerivedData");
-        assert!(g.check_cache(&root.join("App-abc"), std::slice::from_ref(&root)).is_ok());
+        assert!(g
+            .check_cache(&root.join("App-abc"), std::slice::from_ref(&root))
+            .is_ok());
         assert!(g.check_cache(&root, std::slice::from_ref(&root)).is_ok());
     }
 
@@ -317,7 +341,10 @@ mod tests {
         let (_d, env) = setup();
         let g = Guard::new(&env);
         let home = env.home.clone();
-        assert!(matches!(g.check_cache(&home, std::slice::from_ref(&home)), Err(SafetyError::Protected(_))));
+        assert!(matches!(
+            g.check_cache(&home, std::slice::from_ref(&home)),
+            Err(SafetyError::Protected(_))
+        ));
         let sneaky = home.join("Library/Caches/../../Documents/work");
         assert!(g.check_cache(&sneaky, &[home.join("Library/Caches")]).is_err());
         assert_eq!(
@@ -337,7 +364,9 @@ mod tests {
         let through = caches.join("evil/work");
         assert!(g.check_cache(&through, std::slice::from_ref(&caches)).is_err());
         // The link itself is fine to remove; its target is untouched.
-        assert!(g.check_cache(&caches.join("evil"), std::slice::from_ref(&caches)).is_ok());
+        assert!(g
+            .check_cache(&caches.join("evil"), std::slice::from_ref(&caches))
+            .is_ok());
     }
 
     #[test]
@@ -360,7 +389,9 @@ mod tests {
         let (_d, env) = setup();
         let target = env.home.join("Library/Caches/Foo");
         fs::write(target.join("blob"), vec![0u8; 10_000]).unwrap();
-        let checked = Guard::new(&env).check_cache(&target, &[env.home.join("Library/Caches")]).unwrap();
+        let checked = Guard::new(&env)
+            .check_cache(&target, &[env.home.join("Library/Caches")])
+            .unwrap();
         let mut report = DeleteReport::default();
         remove_checked(&checked, DeleteMode::Permanent, &mut report);
         assert!(!target.exists());

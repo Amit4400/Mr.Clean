@@ -11,10 +11,10 @@ use mrclean_core::fsutil::Progress;
 use mrclean_core::memory::{self, MemorySnapshot, QuitResult};
 use mrclean_core::safety::{DeleteMode, DeleteReport};
 use mrclean_core::security::{self, QuarantineEntry, SecurityReport};
+use mrclean_core::sysinfo::System;
 use mrclean_core::system::{self, MemoryInfo, SystemInfo};
 use mrclean_core::{Cancel, Env};
 use serde::Serialize;
-use mrclean_core::sysinfo::System;
 use tauri::{AppHandle, Emitter, State};
 
 #[derive(Default)]
@@ -96,11 +96,15 @@ fn has_full_disk_access() -> bool {
         return true;
     }
     let home = Env::detect().home;
-    ["Library/Safari", "Library/Mail", "Library/Application Support/com.apple.TCC"]
-        .iter()
-        .map(|p| home.join(p))
-        .filter(|p| p.exists())
-        .all(|p| std::fs::read_dir(p).is_ok())
+    [
+        "Library/Safari",
+        "Library/Mail",
+        "Library/Application Support/com.apple.TCC",
+    ]
+    .iter()
+    .map(|p| home.join(p))
+    .filter(|p| p.exists())
+    .all(|p| std::fs::read_dir(p).is_ok())
 }
 
 #[tauri::command]
@@ -186,7 +190,12 @@ async fn bigfiles_remove(state: State<'_, AppState>, paths: Vec<String>, mode: D
 
 #[tauri::command]
 fn bigfiles_summary(state: State<'_, AppState>) -> Res<Option<Summary>> {
-    Ok(state.bigscan.lock().map_err(|e| e.to_string())?.as_ref().map(BigScan::summary))
+    Ok(state
+        .bigscan
+        .lock()
+        .map_err(|e| e.to_string())?
+        .as_ref()
+        .map(BigScan::summary))
 }
 
 // ----------------------------------------------------------------- memory

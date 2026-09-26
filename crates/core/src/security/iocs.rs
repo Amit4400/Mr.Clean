@@ -59,11 +59,16 @@ impl Iocs {
     }
 
     pub fn is_compromised(&self, name: &str, version: &str) -> bool {
-        self.compromised_packages.get(name).is_some_and(|v| v.iter().any(|x| x == version))
+        self.compromised_packages
+            .get(name)
+            .is_some_and(|v| v.iter().any(|x| x == version))
     }
 
     pub fn has_marker(&self, text: &str) -> Option<&str> {
-        self.content_markers.iter().find(|m| text.contains(m.as_str())).map(String::as_str)
+        self.content_markers
+            .iter()
+            .find(|m| text.contains(m.as_str()))
+            .map(String::as_str)
     }
 }
 

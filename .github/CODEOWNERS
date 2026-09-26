@@ -1,0 +1,7 @@
+# Every pull request needs a review from the maintainer.
+*                               @Sahilsalariasoftradix
+
+# Deletion safety, the security scanner and CI get extra scrutiny.
+/crates/core/src/safety.rs      @Sahilsalariasoftradix
+/crates/core/src/security/      @Sahilsalariasoftradix
+/.github/                       @Sahilsalariasoftradix

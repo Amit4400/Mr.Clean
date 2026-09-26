@@ -1,0 +1,26 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations: { required: true }
+  - type: input
+    id: os
+    attributes:
+      label: OS and version
+      placeholder: macOS 15.3 (Apple Silicon)
+    validations: { required: true }
+  - type: input
+    id: version
+    attributes:
+      label: Mr.Clean version
+      placeholder: 0.1.0
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots or logs
+      description: Please remove personal paths or tokens.

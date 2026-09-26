@@ -12,12 +12,47 @@ use sysinfo::{Pid, Process, ProcessRefreshKind, ProcessesToUpdate, Signal, Syste
 
 /// Processes that must keep running for the OS or desktop to work.
 const PROTECTED_NAMES: &[&str] = &[
-    "kernel_task", "launchd", "WindowServer", "loginwindow", "Finder", "Dock", "SystemUIServer",
-    "ControlCenter", "coreaudiod", "mds", "mds_stores", "mdworker", "cfprefsd", "distnoted",
-    "securityd", "trustd", "opendirectoryd", "systemd", "init", "Xorg", "Xwayland", "gnome-shell",
-    "plasmashell", "kwin_x11", "kwin_wayland", "dbus-daemon", "pipewire", "pulseaudio",
-    "explorer.exe", "csrss.exe", "winlogon.exe", "dwm.exe", "lsass.exe", "services.exe",
-    "svchost.exe", "System", "Registry", "smss.exe", "wininit.exe", "mr-clean", "Mr.Clean",
+    "kernel_task",
+    "launchd",
+    "WindowServer",
+    "loginwindow",
+    "Finder",
+    "Dock",
+    "SystemUIServer",
+    "ControlCenter",
+    "coreaudiod",
+    "mds",
+    "mds_stores",
+    "mdworker",
+    "cfprefsd",
+    "distnoted",
+    "securityd",
+    "trustd",
+    "opendirectoryd",
+    "systemd",
+    "init",
+    "Xorg",
+    "Xwayland",
+    "gnome-shell",
+    "plasmashell",
+    "kwin_x11",
+    "kwin_wayland",
+    "dbus-daemon",
+    "pipewire",
+    "pulseaudio",
+    "explorer.exe",
+    "csrss.exe",
+    "winlogon.exe",
+    "dwm.exe",
+    "lsass.exe",
+    "services.exe",
+    "svchost.exe",
+    "System",
+    "Registry",
+    "smss.exe",
+    "wininit.exe",
+    "mr-clean",
+    "Mr.Clean",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -37,13 +72,17 @@ pub enum DevKind {
 impl DevKind {
     pub fn advice(self) -> &'static str {
         match self {
-            DevKind::GradleDaemon => "Idle Gradle daemons keep 0.5–2 GB each. Safe to quit; the next build starts a new one.",
+            DevKind::GradleDaemon => {
+                "Idle Gradle daemons keep 0.5–2 GB each. Safe to quit; the next build starts a new one."
+            }
             DevKind::KotlinDaemon => "Kotlin compile daemon. Safe to quit when you're not building.",
             DevKind::AdbServer => "Android debug bridge. Safe to quit; it restarts when you run adb or Android Studio.",
             DevKind::AndroidEmulator => "A running Android emulator. Quit it if you're not testing.",
             DevKind::IosSimulator => "iOS Simulator. Quit it if you're not testing.",
             DevKind::DevServer => "A dev server (Metro, Vite, Next, webpack…). Quit it if you forgot it running.",
-            DevKind::OrphanNode => "A Node process whose terminal is gone. Often a forgotten script — check what it is before quitting.",
+            DevKind::OrphanNode => {
+                "A Node process whose terminal is gone. Often a forgotten script — check what it is before quitting."
+            }
             DevKind::Docker => "Docker's virtual machine. Quit Docker Desktop when you don't need containers.",
             DevKind::LanguageServer => "Editor helper. It restarts when you reopen the project.",
         }
@@ -131,8 +170,18 @@ pub fn classify(name: &str, cmd: &str, parent_is_init: bool) -> Option<DevKind> 
     let is_node = lname == "node" || lname == "node.exe" || lname == "bun" || lname == "deno";
     if is_node {
         const SERVERS: &[&str] = &[
-            "metro", "react-native start", "expo start", "vite", "next dev", "next-server",
-            "webpack serve", "webpack-dev-server", "nodemon", "ng serve", "nuxt dev", "storybook",
+            "metro",
+            "react-native start",
+            "expo start",
+            "vite",
+            "next dev",
+            "next-server",
+            "webpack serve",
+            "webpack-dev-server",
+            "nodemon",
+            "ng serve",
+            "nuxt dev",
+            "storybook",
         ];
         if SERVERS.iter().any(|s| cmd.contains(s)) {
             return Some(DevKind::DevServer);
@@ -166,8 +215,8 @@ fn to_info(p: &Process, me: Pid, my_uid: Option<&sysinfo::Uid>, sys: &System) ->
     let name = p.name().to_string_lossy().to_string();
     let cmd: Vec<String> = p.cmd().iter().map(|s| s.to_string_lossy().to_string()).collect();
     let cmd = cmd.join(" ");
-    let parent_is_init = p.parent().map(|pp| pp.as_u32() <= 1).unwrap_or(false)
-        || p.parent().and_then(|pp| sys.process(pp)).is_none();
+    let parent_is_init =
+        p.parent().map(|pp| pp.as_u32() <= 1).unwrap_or(false) || p.parent().and_then(|pp| sys.process(pp)).is_none();
     let dev_kind = classify(&name, &cmd, parent_is_init);
     ProcInfo {
         pid: p.pid().as_u32(),
@@ -219,7 +268,11 @@ pub fn snapshot(sys: &System) -> MemorySnapshot {
     let mut top = procs;
     top.sort_by_key(|a| std::cmp::Reverse(a.memory_bytes));
     top.truncate(60);
-    MemorySnapshot { apps, dev_leftovers: dev, top_processes: top }
+    MemorySnapshot {
+        apps,
+        dev_leftovers: dev,
+        top_processes: top,
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -247,10 +300,16 @@ pub fn quit(sys: &System, pid: u32, expected_name: &str, force: bool) -> QuitRes
         return res(true, "Already closed.");
     };
     if p.name().to_string_lossy() != expected_name {
-        return res(false, "The process changed since the list was loaded. Refresh and try again.");
+        return res(
+            false,
+            "The process changed since the list was loaded. Refresh and try again.",
+        );
     }
     if is_protected(p, me, my_uid.as_ref()) {
-        return res(false, "This is a system or other-user process, so Mr.Clean won't stop it.");
+        return res(
+            false,
+            "This is a system or other-user process, so Mr.Clean won't stop it.",
+        );
     }
     let signal = if force { Signal::Kill } else { Signal::Term };
     let sent = p.kill_with(signal).unwrap_or_else(|| p.kill());
@@ -266,7 +325,12 @@ pub fn quit(sys: &System, pid: u32, expected_name: &str, force: bool) -> QuitRes
 pub fn quit_app(sys: &System, app: &str, force: bool) -> Vec<QuitResult> {
     let snap = snapshot(sys);
     let Some(group) = snap.apps.iter().find(|g| g.app == app) else {
-        return vec![QuitResult { pid: 0, name: app.into(), ok: false, message: "App not found. Refresh and try again.".into() }];
+        return vec![QuitResult {
+            pid: 0,
+            name: app.into(),
+            ok: false,
+            message: "App not found. Refresh and try again.".into(),
+        }];
     };
     if group.protected {
         return vec![QuitResult {
@@ -290,13 +354,20 @@ pub fn quit_app(sys: &System, app: &str, force: bool) -> Vec<QuitResult> {
             pid: group.pids[0],
             name: app.into(),
             ok,
-            message: if ok { "Asked the app to quit (it may ask to save).".into() } else { "The app didn't accept the quit request.".into() },
+            message: if ok {
+                "Asked the app to quit (it may ask to save).".into()
+            } else {
+                "The app didn't accept the quit request.".into()
+            },
         }];
     }
     group
         .pids
         .iter()
-        .filter_map(|pid| sys.process(Pid::from_u32(*pid)).map(|p| (*pid, p.name().to_string_lossy().to_string())))
+        .filter_map(|pid| {
+            sys.process(Pid::from_u32(*pid))
+                .map(|p| (*pid, p.name().to_string_lossy().to_string()))
+        })
         .map(|(pid, name)| quit(sys, pid, &name, force))
         .collect()
 }
@@ -307,7 +378,9 @@ mod tests {
 
     #[test]
     fn app_names_from_bundles() {
-        let exe = Path::new("/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Helper (Renderer).app/Contents/MacOS/x");
+        let exe = Path::new(
+            "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Helper (Renderer).app/Contents/MacOS/x",
+        );
         assert_eq!(app_name("Google Chrome Helper", Some(exe)), "Google Chrome");
         assert_eq!(app_name("node", Some(Path::new("/usr/local/bin/node"))), "node");
     }
@@ -315,12 +388,25 @@ mod tests {
     #[test]
     fn dev_classification() {
         assert_eq!(
-            classify("java", "java -cp gradle-launcher.jar org.gradle.launcher.daemon.bootstrap.GradleDaemon 8.5", false),
+            classify(
+                "java",
+                "java -cp gradle-launcher.jar org.gradle.launcher.daemon.bootstrap.GradleDaemon 8.5",
+                false
+            ),
             Some(DevKind::GradleDaemon)
         );
-        assert_eq!(classify("adb", "adb -L tcp:5037 fork-server server", false), Some(DevKind::AdbServer));
-        assert_eq!(classify("node", "node node_modules/.bin/react-native start", false), Some(DevKind::DevServer));
-        assert_eq!(classify("node", "node /Users/x/.hidden/run.js", true), Some(DevKind::OrphanNode));
+        assert_eq!(
+            classify("adb", "adb -L tcp:5037 fork-server server", false),
+            Some(DevKind::AdbServer)
+        );
+        assert_eq!(
+            classify("node", "node node_modules/.bin/react-native start", false),
+            Some(DevKind::DevServer)
+        );
+        assert_eq!(
+            classify("node", "node /Users/x/.hidden/run.js", true),
+            Some(DevKind::OrphanNode)
+        );
         assert_eq!(classify("node", "node script.js", false), None);
         assert_eq!(classify("Safari", "", false), None);
     }
@@ -331,7 +417,11 @@ mod tests {
         refresh(&mut sys);
         let s = snapshot(&sys);
         let me = std::process::id();
-        let mine = s.top_processes.iter().chain(s.dev_leftovers.iter()).find(|p| p.pid == me);
+        let mine = s
+            .top_processes
+            .iter()
+            .chain(s.dev_leftovers.iter())
+            .find(|p| p.pid == me);
         if let Some(p) = mine {
             assert!(p.protected);
         }

@@ -32,22 +32,25 @@ Built with [Tauri 2](https://tauri.app): a Rust core does all the scanning, and 
 
 ## Develop
 
-Requirements: [Rust](https://rustup.rs) (stable) and Node 22. On Linux you also need `libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev`.
+Full setup for macOS, Linux and Windows is in **[CONTRIBUTING.md](CONTRIBUTING.md)**. Quick start:
 
 ```bash
 npm install
 npm run tauri dev          # run the app with hot reload
+npm run dev                # UI only, in a browser with sample data (no Rust needed)
 cargo test --workspace     # core tests (fake home folders, never your real files)
+npm test                   # UI unit tests
+npm run test:e2e           # end-to-end tests in Chromium
 npm run tauri build        # build an installer for this OS
 ```
-
-To work on the UI in a normal browser with sample data, run `npm run dev` and open http://localhost:1420. The UI uses mock data automatically when it isn't running inside Tauri.
 
 To see what the scanners find on your machine without the UI (read-only):
 
 ```bash
 cargo run --release -p mrclean-core --example scan -- all   # or: cleaner | files | security | memory
 ```
+
+Working with Claude Code or another AI assistant? Read **[CLAUDE.md](CLAUDE.md)** first.
 
 ### Layout
 
@@ -61,7 +64,8 @@ crates/core/          all logic, no UI (unit-tested)
   src/system.rs       dashboard info
 src-tauri/            Tauri app: thin command wrappers around the core
 src/                  React + TypeScript + Tailwind UI
-.github/workflows/    CI: Linux tests; macOS universal .dmg build
+e2e/                  Playwright end-to-end tests (mock backend)
+.github/workflows/    ci.yml (tests), security.yml (CodeQL, self-scan, audits), build.yml (.dmg)
 ```
 
 ### Adding a cache location
@@ -75,6 +79,10 @@ Add a `rule!(…)` entry in `crates/core/src/cleaner/rules.rs`. Use `Dir` to del
 ## Releasing
 
 Push a tag like `v0.2.0`. CI builds the universal `.dmg` and attaches it to a GitHub Release. To get rid of the "unidentified developer" warning, add an Apple Developer ID certificate and notarization secrets to the workflow ([Tauri guide](https://v2.tauri.app/distribute/sign/macos/)).
+
+## Contributing & security
+
+Pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). Report vulnerabilities privately: [SECURITY.md](SECURITY.md).
 
 ## License
 
