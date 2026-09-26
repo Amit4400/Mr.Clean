@@ -11,12 +11,16 @@ crates/core/        All logic, no UI. Every behaviour lives and is tested here.
   src/safety.rs     THE deletion guard. Every delete must pass through it.
   src/cleaner/      rules.rs = catalog of cache locations; mod.rs = scan/clean; node_modules.rs
   src/bigfiles.rs   folder-size index, biggest files, user-picked deletes
+  src/explain.rs    "What is this folder?" (read-only)
+  src/simruntime.rs simulator runtime names/mounts (removal lives in safety.rs)
   src/memory.rs     processes, dev leftovers, protected quit
-  src/security/     malware checks (read-only), iocs.json, quarantine, scan_tree (CI self-scan)
+  src/security/     malware checks (read-only), iocs.json, quarantine, scan_tree (CI self-scan),
+                    protection.rs (OS protection checks), windows.rs (Windows startup items)
   src/system.rs     dashboard info
   examples/         scan.rs (read-only CLI of every scanner), repo_scan.rs (CI malware gate)
 src-tauri/          Thin Tauri commands wrapping the core. No logic here.
 src/                React + TypeScript + Tailwind UI. lib/api.ts calls Tauri, or lib/mock.ts in a browser.
+                    lib/platform.ts picks Mac/Windows/Linux wording; preview with ?platform=windows|linux.
 e2e/                Playwright smoke tests (run against the mock backend)
 ```
 

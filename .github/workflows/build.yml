@@ -19,8 +19,6 @@ jobs:
     name: Build macOS app (.dmg)
     runs-on: macos-latest
     timeout-minutes: 45
-    permissions:
-      contents: write # only used to attach the .dmg to a release on v* tags
     steps:
       - uses: actions/checkout@v7
         with:
@@ -44,19 +42,12 @@ jobs:
           name: Mr.Clean-macOS
           path: target/universal-apple-darwin/release/bundle/dmg/*.dmg
           if-no-files-found: error
-      - name: Attach to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
-        with:
-          files: target/universal-apple-darwin/release/bundle/dmg/*.dmg
 
   build-linux:
     name: Build Linux app (.deb, .AppImage)
     # The oldest Ubuntu with WebKitGTK 4.1, so the app runs on 22.04 and newer.
     runs-on: ubuntu-22.04
     timeout-minutes: 45
-    permissions:
-      contents: write # only used to attach the files to a release on v* tags
     steps:
       - uses: actions/checkout@v7
         with:
@@ -79,27 +70,23 @@ jobs:
         run: cargo test -p mrclean-core
       - name: Build .deb and .AppImage
         run: npx tauri build --bundles deb,appimage
+      # Separate downloads: the .deb is small; the AppImage bundles its own
+      # WebKitGTK/GTK so it runs on any distro, which makes it ~10x bigger.
       - uses: actions/upload-artifact@v7
         with:
-          name: Mr.Clean-Linux
-          path: |
-            target/release/bundle/deb/*.deb
-            target/release/bundle/appimage/*.AppImage
+          name: Mr.Clean-Linux-deb
+          path: target/release/bundle/deb/*.deb
           if-no-files-found: error
-      - name: Attach to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+      - uses: actions/upload-artifact@v7
         with:
-          files: |
-            target/release/bundle/deb/*.deb
-            target/release/bundle/appimage/*.AppImage
+          name: Mr.Clean-Linux-AppImage
+          path: target/release/bundle/appimage/*.AppImage
+          if-no-files-found: error
 
   build-windows:
     name: Build Windows app (.msi, .exe)
     runs-on: windows-latest
     timeout-minutes: 45
-    permissions:
-      contents: write # only used to attach the files to a release on v* tags
     steps:
       - uses: actions/checkout@v7
         with:
@@ -124,10 +111,40 @@ jobs:
             target/release/bundle/msi/*.msi
             target/release/bundle/nsis/*.exe
           if-no-files-found: error
-      - name: Attach to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+
+  release:
+    name: Publish GitHub Release
+    # One job publishes everything once all three builds pass (v* tags only).
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build-macos, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write # create the release and upload the installers
+    steps:
+      - uses: actions/download-artifact@v8
         with:
+          path: dist-release
+      - name: Publish release
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          name: Mr.Clean ${{ github.ref_name }}
+          generate_release_notes: true
+          body: |
+            ### Which file do I download?
+
+            | Your computer | File |
+            |---|---|
+            | Mac (Apple Silicon or Intel) | `Mr.Clean_*_universal.dmg` |
+            | Windows 10/11 | `Mr.Clean_*_x64-setup.exe` (or the `.msi`) |
+            | Ubuntu / Debian | `Mr.Clean_*_amd64.deb` |
+            | Other Linux | `Mr.Clean_*_amd64.AppImage` (bigger: it brings its own web engine) |
+
+            The apps aren't code-signed yet. On a Mac, right-click the app → **Open** the first time. On Windows, click **More info → Run anyway**.
           files: |
-            target/release/bundle/msi/*.msi
-            target/release/bundle/nsis/*.exe
+            dist-release/Mr.Clean-macOS/*.dmg
+            dist-release/Mr.Clean-Windows/*.exe
+            dist-release/Mr.Clean-Windows/*.msi
+            dist-release/Mr.Clean-Linux-deb/*.deb
+            dist-release/Mr.Clean-Linux-AppImage/*.AppImage
+          fail_on_unmatched_files: true

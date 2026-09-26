@@ -27,7 +27,7 @@ npm install
 npm run tauri dev        # opens the app with hot reload
 ```
 
-Only working on the UI? `npm run dev` opens it in your browser with realistic sample data, so you don't need Rust.
+Only working on the UI? `npm run dev` opens it in your browser with realistic sample data, so you don't need Rust. Add `?platform=windows` or `?platform=linux` to the URL to see the Windows or Linux version of the screens.
 
 ## Make a change
 
@@ -71,3 +71,10 @@ PRs from forks need a maintainer's approval before CI runs, which stops untruste
 ## Reporting security problems
 
 Please don't open a public issue. See [SECURITY.md](SECURITY.md).
+
+## Releasing (maintainer)
+
+1. Bump the version in `package.json`, `src-tauri/tauri.conf.json` and `Cargo.toml` (`[workspace.package]`).
+2. Add a section for it at the top of [CHANGELOG.md](CHANGELOG.md), open a PR and merge it.
+3. From an up-to-date `main`, push the tag: `git tag vX.Y.Z && git push origin vX.Y.Z`.
+4. The **Build** workflow builds macOS, Linux and Windows, and its **Publish GitHub Release** job creates the release with every installer attached.

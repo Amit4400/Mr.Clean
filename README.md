@@ -4,15 +4,32 @@ A small desktop app that keeps developer Macs and PCs fast and safe. It cleans o
 
 Built with [Tauri 2](https://tauri.app): a Rust core does all the scanning, and a React UI sits on top. The installer is about 10 MB and the app uses little memory, so it runs well on an 8 GB MacBook. It runs on macOS, Windows 10/11 and Linux (Ubuntu 22.04 or newer).
 
+<p align="center">
+  <img src="docs/screenshots/overview-light.webp" width="820" alt="Mr.Clean Overview: storage orb, what the last scan found, and quick actions">
+</p>
+
+**[⬇ Download the latest release](https://github.com/Sahilsalariasoftradix/Mr.Clean/releases/latest)** for macOS, Windows or Linux.
+
 ## Features
 
 | Page | What it does |
 |---|---|
-| **Dashboard** | Your Mac's model, CPU, storage used/free and live RAM use, plus a "Scan everything" button. |
-| **Dev Cleaner** | Finds caches from Xcode (DerivedData, device support, **iOS simulators**, even after Xcode is uninstalled), Android (Gradle, emulators, system images), npm/yarn/pnpm/bun, CocoaPods, SwiftPM, pip, cargo, Homebrew, IDEs, app caches and logs. Also lists `node_modules` in projects you haven't touched for a while. |
-| **Large Files** | A fast parallel scan of your home folder. Browse folders sorted by size, see the biggest files filtered by type and age, and remove what you choose. |
-| **Security** | Looks for developer-targeted malware: the **Shai-Hulud** npm worm, **Contagious Interview / BeaverTail** fake-job projects, known-compromised npm package versions, risky install scripts, suspicious LaunchAgents and cron jobs, git hooks that push code, a changed git identity, code injected into shell profiles, and tokens left in plain text. |
-| **Memory** | RAM and swap use, apps grouped by memory, and developer leftovers (idle Gradle/Kotlin daemons, ADB, emulators, simulators, forgotten dev servers, orphaned Node processes) that you can quit safely. |
+| **Overview** | Your computer's model, chip, RAM and OS version; a live storage orb; a health headline ("Your Mac, in good shape"); one **Scan everything** button; what the last scan found; and quick actions. |
+| **Clean** | Developer caches with filter chips and tool logos: Xcode (DerivedData, device support, **iOS simulators and simulator runtimes**, even after Xcode is uninstalled), Android (Gradle, emulators, system images), npm/yarn/pnpm/bun, CocoaPods, SwiftPM, pip, cargo, Go, .NET/NuGet, Homebrew, VS Code/Cursor, JetBrains/Android Studio, app caches, logs and Windows temp files. Old `node_modules` sit in a side panel (online-only iCloud copies are left out). |
+| **Files** | A fast parallel scan of your home folder. Browse folders by size, see the biggest files by type and age, search, and read **"What is this?"** for a folder (for example Apple Intelligence caches, `.gemini`, AppData), with advice on whether deleting is safe. |
+| **Security** | Developer-targeted malware: the **Shai-Hulud** npm worm, **Contagious Interview / BeaverTail** fake-job projects, known-bad npm versions, risky install scripts, suspicious startup items (LaunchAgents, cron, systemd, Windows Run keys, Startup folder, scheduled tasks), git hooks that push code, a changed git identity, code in shell or PowerShell profiles, and tokens in plain text. A **protection card** checks FileVault/BitLocker/disk encryption, firewall, Gatekeeper/SmartScreen, updates and remote login, with **Fix** or **How to fix** for each. Some findings have a one-click, confirmed **Fix**. |
+| **Memory** | RAM breakdown (apps, wired, compressed, free), a 10-minute pressure chart, apps grouped by memory with their real icons, and developer leftovers (idle Gradle/Kotlin daemons, ADB, emulators, simulators, dev servers, orphaned Node) you can quit safely. |
+
+<details>
+<summary>More screenshots</summary>
+
+| | |
+|---|---|
+| ![Overview in dark mode](docs/screenshots/overview-dark.webp) | ![Clean](docs/screenshots/clean.webp) |
+| ![Files with "What is this?"](docs/screenshots/files.webp) | ![Security with Mac protection](docs/screenshots/security.webp) |
+| ![Memory](docs/screenshots/memory.webp) | ![Windows protection](docs/screenshots/windows-security.webp) |
+
+</details>
 
 ## Safety rules
 
@@ -24,20 +41,29 @@ Built with [Tauri 2](https://tauri.app): a Rust core does all the scanning, and 
 - On Windows the guard also refuses `C:\Windows`, Program Files, ProgramData, saved credentials and app data (except Temp and crash dumps).
 - Everything runs on your computer. Nothing is uploaded.
 
-## Install (for teammates)
+## Install
 
-Download the file for your system from the repo's **Actions → Build → Artifacts** (or from a GitHub Release).
+Get the file for your computer from **[Releases](https://github.com/Sahilsalariasoftradix/Mr.Clean/releases/latest)** (or, for a pull request, from **Actions → Build → Artifacts**).
 
-**macOS** (`Mr.Clean-macOS`)
-1. Open `Mr.Clean_x.y.z_universal.dmg` and drag **Mr.Clean** into **Applications**.
-2. The first time, **right-click the app → Open → Open**. Without an Apple Developer ID the app is unsigned, so macOS shows an "unidentified developer" warning.
+| Your computer | Download | Size |
+|---|---|---|
+| Mac (Apple Silicon or Intel) | `Mr.Clean_x.y.z_universal.dmg` | ~8 MB |
+| Windows 10/11 | `Mr.Clean_x.y.z_x64-setup.exe` (or `.msi`) | ~5 MB |
+| Ubuntu / Debian (22.04+) | `Mr.Clean_x.y.z_amd64.deb` | ~4 MB |
+| Any other Linux | `Mr.Clean_x.y.z_amd64.AppImage` | ~75 MB |
+
+Mac and Windows use the web engine built into the system, so their apps are small. On Linux the `.deb` uses the system's WebKitGTK too; the AppImage carries its own copy so it runs on any distro, which is why it's bigger.
+
+**macOS**
+1. Open the `.dmg` and drag **Mr.Clean** into **Applications**.
+2. The first time, **right-click the app → Open → Open**. The app isn't signed with an Apple Developer ID yet, so macOS warns about an "unidentified developer".
 3. Recommended: grant **Full Disk Access** (Settings page → *Open Privacy settings* → turn on Mr.Clean → restart the app) so every cache folder is visible.
 
-**Windows 10/11** (`Mr.Clean-Windows`)
+**Windows 10/11**
 1. Run the `.exe` installer (or the `.msi`).
-2. The app isn't code-signed yet, so Windows shows "Windows protected your PC". Click **More info → Run anyway**.
+2. The installer isn't code-signed yet, so Windows shows "Windows protected your PC". Click **More info → Run anyway**.
 
-**Linux** (`Mr.Clean-Linux`, Ubuntu 22.04 or newer)
+**Linux**
 - Ubuntu/Debian: `sudo apt install ./Mr.Clean_x.y.z_amd64.deb`
 - Any distro: `chmod +x Mr.Clean_x.y.z_amd64.AppImage` and run it.
 
@@ -67,14 +93,18 @@ Working with Claude Code or another AI assistant? Read **[CLAUDE.md](CLAUDE.md)*
 
 ```
 crates/core/          all logic, no UI (unit-tested)
-  src/safety.rs       the deletion guard
+  src/safety.rs       the deletion guard (incl. simulator runtimes, Windows paths)
   src/cleaner/        rule catalog (rules.rs), scan/clean, stale node_modules
   src/bigfiles.rs     folder-size index + biggest files
+  src/explain.rs      "What is this folder?" explanations
+  src/simruntime.rs   Xcode simulator runtime names and mounts
   src/memory.rs       processes, dev leftovers, safe quit
-  src/security/       malware checks + iocs.json (indicators of compromise)
-  src/system.rs       dashboard info
+  src/security/       malware checks, iocs.json, protection.rs (FileVault/BitLocker/…),
+                      windows.rs (Run keys, Startup folder, scheduled tasks)
+  src/system.rs       device info and dashboard numbers
 src-tauri/            Tauri app: thin command wrappers around the core
-src/                  React + TypeScript + Tailwind UI
+src/                  React + TypeScript + Tailwind UI (lib/platform.ts: Mac/Windows/Linux wording)
+docs/screenshots/     images used in this README
 e2e/                  Playwright end-to-end tests (mock backend)
 .github/workflows/    ci.yml (tests), security.yml (CodeQL, self-scan, audits), build.yml (.dmg, .deb/.AppImage, .msi/.exe)
 ```
@@ -89,7 +119,8 @@ Add a `rule!(…)` entry in `crates/core/src/cleaner/rules.rs`. Use `Dir` to del
 
 ## Releasing
 
-Push a tag like `v0.2.0`. CI builds the universal `.dmg`, the Linux `.deb`/`.AppImage` and the Windows `.msi`/`.exe`, and attaches them to a GitHub Release. Windows shows a SmartScreen warning until the installer is signed with a code-signing certificate ([Tauri guide](https://v2.tauri.app/distribute/sign/windows/)). To get rid of the "unidentified developer" warning, add an Apple Developer ID certificate and notarization secrets to the workflow ([Tauri guide](https://v2.tauri.app/distribute/sign/macos/)).
+1. Bump the version in `package.json`, `src-tauri/tauri.conf.json` and `Cargo.toml` (`[workspace.package]`), add a section to [CHANGELOG.md](CHANGELOG.md), and merge.
+2. Push a tag like `v0.2.0` from `main`. CI builds the universal `.dmg`, the Linux `.deb`/`.AppImage` and the Windows `.msi`/`.exe`, then one job publishes a GitHub Release with all of them. Windows shows a SmartScreen warning until the installer is signed with a code-signing certificate ([Tauri guide](https://v2.tauri.app/distribute/sign/windows/)). To get rid of the "unidentified developer" warning, add an Apple Developer ID certificate and notarization secrets to the workflow ([Tauri guide](https://v2.tauri.app/distribute/sign/macos/)).
 
 ## Contributing & security
 
