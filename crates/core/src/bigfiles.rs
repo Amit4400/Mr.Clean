@@ -14,7 +14,14 @@ use crate::safety::{remove_checked, DeleteMode, DeleteReport, Guard};
 const TOP_FILES: usize = 200;
 const MIN_TOP_FILE: u64 = 10 * 1024 * 1024;
 /// Virtual or external mounts we never walk into.
-const PRUNE_ABSOLUTE: &[&str] = &["/Volumes", "/System/Volumes", "/dev", "/proc", "/sys", "/private/var/vm"];
+const PRUNE_ABSOLUTE: &[&str] = &[
+    "/Volumes",
+    "/System/Volumes",
+    "/dev",
+    "/proc",
+    "/sys",
+    "/private/var/vm",
+];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -30,15 +37,24 @@ pub enum Kind {
 }
 
 pub fn kind_of(path: &Path) -> Kind {
-    let ext = path.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
+    let ext = path
+        .extension()
+        .map(|e| e.to_string_lossy().to_lowercase())
+        .unwrap_or_default();
     match ext.as_str() {
         "mp4" | "mov" | "mkv" | "avi" | "m4v" | "webm" | "wmv" | "flv" => Kind::Video,
-        "jpg" | "jpeg" | "png" | "heic" | "gif" | "tiff" | "tif" | "psd" | "cr2" | "nef" | "dng" | "webp" => Kind::Image,
+        "jpg" | "jpeg" | "png" | "heic" | "gif" | "tiff" | "tif" | "psd" | "cr2" | "nef" | "dng" | "webp" => {
+            Kind::Image
+        }
         "mp3" | "wav" | "m4a" | "aac" | "flac" | "aiff" | "ogg" => Kind::Audio,
         "zip" | "rar" | "7z" | "tar" | "gz" | "tgz" | "bz2" | "xz" | "zst" => Kind::Archive,
-        "dmg" | "iso" | "img" | "vmdk" | "qcow2" | "vdi" | "vhd" | "vhdx" | "sparseimage" | "sparsebundle" => Kind::DiskImage,
+        "dmg" | "iso" | "img" | "vmdk" | "qcow2" | "vdi" | "vhd" | "vhdx" | "sparseimage" | "sparsebundle" => {
+            Kind::DiskImage
+        }
         "pkg" | "exe" | "msi" | "apk" | "aab" | "ipa" | "deb" | "rpm" | "appimage" | "xip" => Kind::Installer,
-        "pdf" | "doc" | "docx" | "ppt" | "pptx" | "xls" | "xlsx" | "key" | "pages" | "numbers" | "sketch" | "fig" => Kind::Document,
+        "pdf" | "doc" | "docx" | "ppt" | "pptx" | "xls" | "xlsx" | "key" | "pages" | "numbers" | "sketch" | "fig" => {
+            Kind::Document
+        }
         _ => Kind::Other,
     }
 }
@@ -93,7 +109,10 @@ pub struct BigScan {
 fn file_entry(path: PathBuf, bytes: u64) -> FileEntry {
     let meta = std::fs::symlink_metadata(&path).ok();
     FileEntry {
-        name: path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default(),
+        name: path
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default(),
         kind: kind_of(&path),
         modified: meta.as_ref().and_then(|m| m.modified().ok()).and_then(to_unix),
         accessed: meta.as_ref().and_then(|m| m.accessed().ok()).and_then(to_unix),
@@ -181,13 +200,28 @@ pub fn scan(root: &Path, cancel: &Cancel, progress: &Progress) -> BigScan {
 
     let mut top: Vec<FileEntry> = heap.into_iter().map(|Reverse((b, p))| file_entry(p, b)).collect();
     top.sort_by_key(|a| std::cmp::Reverse(a.bytes));
-    BigScan { root, sizes, children, top, kinds, file_count, unreadable }
+    BigScan {
+        root,
+        sizes,
+        children,
+        top,
+        kinds,
+        file_count,
+        unreadable,
+    }
 }
 
 impl BigScan {
     pub fn summary(&self) -> Summary {
-        let mut kinds: Vec<KindTotal> =
-            self.kinds.iter().map(|(k, (b, c))| KindTotal { kind: *k, bytes: *b, count: *c }).collect();
+        let mut kinds: Vec<KindTotal> = self
+            .kinds
+            .iter()
+            .map(|(k, (b, c))| KindTotal {
+                kind: *k,
+                bytes: *b,
+                count: *c,
+            })
+            .collect();
         kinds.sort_by_key(|a| std::cmp::Reverse(a.bytes));
         Summary {
             root: self.root.display().to_string(),
@@ -207,7 +241,10 @@ impl BigScan {
             .into_iter()
             .flatten()
             .map(|d| Node {
-                name: d.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default(),
+                name: d
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_default(),
                 bytes: self.sizes.get(d).copied().unwrap_or(0),
                 is_dir: true,
                 modified: crate::fsutil::modified_secs(d),

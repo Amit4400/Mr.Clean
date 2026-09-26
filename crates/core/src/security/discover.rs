@@ -13,8 +13,22 @@ const MAX_DEPTH: usize = 8;
 const SKIP_AT_HOME: &[&str] = &["Library", "Applications", "Pictures", "Movies", "Music", "AppData"];
 /// Build output and vendored code: huge and not where attackers hide config.
 const SKIP_ANYWHERE: &[&str] = &[
-    "node_modules", "Pods", "DerivedData", "build", "dist", ".next", ".nuxt", "target",
-    ".gradle", ".dart_tool", "vendor", ".venv", "venv", "__pycache__", ".cache", ".turbo",
+    "node_modules",
+    "Pods",
+    "DerivedData",
+    "build",
+    "dist",
+    ".next",
+    ".nuxt",
+    "target",
+    ".gradle",
+    ".dart_tool",
+    "vendor",
+    ".venv",
+    "venv",
+    "__pycache__",
+    ".cache",
+    ".turbo",
 ];
 
 #[derive(Debug, Default)]
@@ -30,7 +44,11 @@ pub struct Discovered {
 
 fn is_js_config(name: &str) -> bool {
     let is_js = [".js", ".cjs", ".mjs", ".ts"].iter().any(|e| name.ends_with(e));
-    is_js && (name.contains(".config.") || name.starts_with(".eslintrc") || name == "gulpfile.js" || name == "Gruntfile.js")
+    is_js
+        && (name.contains(".config.")
+            || name.starts_with(".eslintrc")
+            || name == "gulpfile.js"
+            || name == "Gruntfile.js")
 }
 
 pub fn discover(env: &Env, roots: &[PathBuf], iocs: &Iocs, cancel: &Cancel) -> Discovered {
@@ -97,15 +115,24 @@ pub fn findings(d: &Discovered, iocs: &Iocs) -> Vec<Finding> {
     let mut out = Vec::new();
     for p in &d.ioc_files {
         out.push(
-            Finding::new(Severity::High, Area::KnownMalware, "Stolen-secrets file from the Shai-Hulud worm",
-                "The worm writes the secrets it harvests into files with this name before uploading them.")
-                .path(p)
-                .advice("Rotate every token on this machine (GitHub, npm, cloud) and check GitHub for repos you didn't create.")
-                .quarantinable(),
+            Finding::new(
+                Severity::High,
+                Area::KnownMalware,
+                "Stolen-secrets file from the Shai-Hulud worm",
+                "The worm writes the secrets it harvests into files with this name before uploading them.",
+            )
+            .path(p)
+            .advice(
+                "Rotate every token on this machine (GitHub, npm, cloud) and check GitHub for repos you didn't create.",
+            )
+            .quarantinable(),
         );
     }
     for p in &d.workflows {
-        let name = p.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+        let name = p
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default();
         let text = read_small(p, 512 * 1024).unwrap_or_default();
         let marker = iocs.has_marker(&text);
         let named = iocs.workflow_files.contains(&name);
@@ -113,23 +140,34 @@ pub fn findings(d: &Discovered, iocs: &Iocs) -> Vec<Finding> {
         let high: Vec<_> = hits.iter().filter(|h| h.severity == Severity::High).collect();
         if named || marker.is_some() {
             out.push(
-                Finding::new(Severity::High, Area::KnownMalware, "Shai-Hulud GitHub workflow",
-                    "This workflow matches the npm worm that steals secrets through GitHub Actions.")
-                    .path(p)
-                    .evidence(marker.unwrap_or(&name).to_string())
-                    .advice("Delete the workflow from the repo on GitHub too, and rotate repository secrets.")
-                    .quarantinable(),
+                Finding::new(
+                    Severity::High,
+                    Area::KnownMalware,
+                    "Shai-Hulud GitHub workflow",
+                    "This workflow matches the npm worm that steals secrets through GitHub Actions.",
+                )
+                .path(p)
+                .evidence(marker.unwrap_or(&name).to_string())
+                .advice("Delete the workflow from the repo on GitHub too, and rotate repository secrets.")
+                .quarantinable(),
             );
         } else if let Some(h) = high.first() {
             out.push(
-                Finding::new(Severity::High, Area::ProjectCode, "Suspicious GitHub workflow", format!("This workflow {}.", h.reason))
-                    .path(p)
-                    .quarantinable(),
+                Finding::new(
+                    Severity::High,
+                    Area::ProjectCode,
+                    "Suspicious GitHub workflow",
+                    format!("This workflow {}.", h.reason),
+                )
+                .path(p)
+                .quarantinable(),
             );
         }
     }
     for p in &d.js_configs {
-        let Some(text) = read_small(p, 2 * 1024 * 1024) else { continue };
+        let Some(text) = read_small(p, 2 * 1024 * 1024) else {
+            continue;
+        };
         let hits = patterns::scan_text(&text);
         let Some(sev) = patterns::worst(&hits) else { continue };
         // Config files are never legitimately minified or obfuscated, so even

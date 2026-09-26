@@ -9,7 +9,13 @@ use super::{patterns, read_small, Area, Finding, Severity};
 use crate::env::Env;
 
 const PROFILES: &[&str] = &[
-    ".zshrc", ".zprofile", ".zshenv", ".zlogin", ".bashrc", ".bash_profile", ".profile",
+    ".zshrc",
+    ".zprofile",
+    ".zshenv",
+    ".zlogin",
+    ".bashrc",
+    ".bash_profile",
+    ".profile",
     ".config/fish/config.fish",
 ];
 const HISTORIES: &[&str] = &[".zsh_history", ".bash_history", ".local/share/fish/fish_history"];
@@ -30,7 +36,9 @@ pub fn scan(env: &Env) -> Vec<Finding> {
     let mut out = Vec::new();
     for rel in PROFILES {
         let p = env.home.join(rel);
-        let Some(text) = read_small(&p, 4 * 1024 * 1024) else { continue };
+        let Some(text) = read_small(&p, 4 * 1024 * 1024) else {
+            continue;
+        };
         for (i, line) in text.lines().enumerate() {
             if line.trim_start().starts_with('#') {
                 continue;
@@ -38,12 +46,16 @@ pub fn scan(env: &Env) -> Vec<Finding> {
             let hits = patterns::scan_text(line);
             if let Some(sev) = patterns::worst(&hits) {
                 out.push(
-                    Finding::new(sev, Area::ShellProfile, format!("Suspicious line in ~/{rel}"),
-                        format!("This runs every time you open a terminal and {}.", hits[0].reason))
-                        .path(&p)
-                        .line(i + 1)
-                        .evidence(patterns::excerpt(line))
-                        .advice(format!("If you didn't add it, delete line {} from ~/{rel}.", i + 1)),
+                    Finding::new(
+                        sev,
+                        Area::ShellProfile,
+                        format!("Suspicious line in ~/{rel}"),
+                        format!("This runs every time you open a terminal and {}.", hits[0].reason),
+                    )
+                    .path(&p)
+                    .line(i + 1)
+                    .evidence(patterns::excerpt(line))
+                    .advice(format!("If you didn't add it, delete line {} from ~/{rel}.", i + 1)),
                 );
             }
             if let Some(m) = token_re().find(line) {
@@ -60,7 +72,9 @@ pub fn scan(env: &Env) -> Vec<Finding> {
     }
     for rel in HISTORIES {
         let p = env.home.join(rel);
-        let Some(text) = read_small(&p, 64 * 1024 * 1024) else { continue };
+        let Some(text) = read_small(&p, 64 * 1024 * 1024) else {
+            continue;
+        };
         let found: Vec<&str> = token_re().find_iter(&text).map(|m| m.as_str()).collect();
         if let Some(first) = found.first() {
             out.push(
@@ -75,10 +89,14 @@ pub fn scan(env: &Env) -> Vec<Finding> {
     let creds = env.home.join(".git-credentials");
     if creds.is_file() {
         out.push(
-            Finding::new(Severity::Medium, Area::Secrets, "Plain-text git credentials",
-                "~/.git-credentials stores your git host passwords/tokens unencrypted.")
-                .path(&creds)
-                .advice("Switch to the macOS Keychain helper and delete this file after rotating the tokens."),
+            Finding::new(
+                Severity::Medium,
+                Area::Secrets,
+                "Plain-text git credentials",
+                "~/.git-credentials stores your git host passwords/tokens unencrypted.",
+            )
+            .path(&creds)
+            .advice("Switch to the macOS Keychain helper and delete this file after rotating the tokens."),
         );
     }
     if let Ok(rd) = std::fs::read_dir(&env.home) {

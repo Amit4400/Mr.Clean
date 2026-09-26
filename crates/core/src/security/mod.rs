@@ -153,7 +153,39 @@ pub fn scan(env: &Env, roots: &[PathBuf], cancel: &Cancel) -> SecurityReport {
     finish(f, found.repos.len(), found.projects, packages, started)
 }
 
-fn finish(mut f: Vec<Finding>, repos: usize, projects: usize, packages: usize, started: std::time::Instant) -> SecurityReport {
+/// Scan only a source tree, e.g. a pull request checkout in CI: project config
+/// files, installed npm packages, lockfiles, workflows and repo hooks. Nothing
+/// about the machine running it (home folder, startup items, shell) is looked at.
+pub fn scan_tree(root: &Path, cancel: &Cancel) -> SecurityReport {
+    let started = std::time::Instant::now();
+    // An empty stand-in home so global git config, ~/.npmrc and user IOC
+    // overrides of whoever runs this never leak into the result.
+    let sandbox = std::env::temp_dir().join(format!("mrclean-tree-{}-{}", std::process::id(), now_secs()));
+    let _ = std::fs::create_dir_all(&sandbox);
+    let env = Env {
+        home: sandbox.clone(),
+        root: sandbox.join("no-system-root"),
+        os: crate::env::Os::current(),
+        local_app_data: None,
+        app_data: None,
+    };
+    let iocs = Iocs::bundled();
+    let found = discover::discover(&env, &[root.to_path_buf()], &iocs, cancel);
+    let mut f = git::scan(&env, &found, &iocs);
+    let (npm_findings, packages) = npm::scan(&env, &found, &iocs, cancel);
+    f.extend(npm_findings);
+    f.extend(discover::findings(&found, &iocs));
+    let _ = std::fs::remove_dir_all(&sandbox);
+    finish(f, found.repos.len(), found.projects, packages, started)
+}
+
+fn finish(
+    mut f: Vec<Finding>,
+    repos: usize,
+    projects: usize,
+    packages: usize,
+    started: std::time::Instant,
+) -> SecurityReport {
     for x in f.iter_mut() {
         x.id = format!(
             "{:?}|{}|{}|{}",
@@ -226,7 +258,9 @@ pub fn quarantine(env: &Env, path: &Path, reason: &str) -> Result<QuarantineEntr
     let home = env.home.canonicalize().unwrap_or_else(|_| env.home.clone());
     let qdir = quarantine_dir(env);
     if !resolved.starts_with(&home) || resolved == home {
-        return Err("Only items inside your home folder can be quarantined. Remove system items with an admin account.".into());
+        return Err(
+            "Only items inside your home folder can be quarantined. Remove system items with an admin account.".into(),
+        );
     }
     if resolved.starts_with(qdir.canonicalize().unwrap_or(qdir.clone())) || resolved.starts_with(&qdir) {
         return Err("Already in quarantine.".into());

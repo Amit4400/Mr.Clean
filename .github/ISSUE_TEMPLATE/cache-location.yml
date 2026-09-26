@@ -1,0 +1,27 @@
+name: New cache location
+description: A developer tool leaves junk that Mr.Clean doesn't find yet
+labels: [cleaner-rule]
+body:
+  - type: input
+    id: tool
+    attributes:
+      label: Tool
+      placeholder: Deno, Unity, Flutter…
+    validations: { required: true }
+  - type: input
+    id: path
+    attributes:
+      label: Path
+      placeholder: ~/Library/Caches/deno
+    validations: { required: true }
+  - type: textarea
+    id: safety
+    attributes:
+      label: What happens when it's deleted?
+      description: Does the tool rebuild it automatically? Is anything lost (settings, emulators, offline builds)?
+    validations: { required: true }
+  - type: input
+    id: size
+    attributes:
+      label: Typical size
+      placeholder: 2–5 GB

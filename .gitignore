@@ -4,3 +4,5 @@ target/
 *.log
 .DS_Store
 src-tauri/gen/schemas/
+test-results/
+playwright-report/

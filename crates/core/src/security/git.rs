@@ -11,7 +11,16 @@ use crate::env::Env;
 
 /// Hooks written by well-known tools. Still scanned for bad patterns, but not
 /// reported just for existing.
-const KNOWN_HOOK_TOOLS: &[&str] = &["husky", "lefthook", "pre-commit", "lint-staged", "git-lfs", "commitlint", "overcommit", "talisman"];
+const KNOWN_HOOK_TOOLS: &[&str] = &[
+    "husky",
+    "lefthook",
+    "pre-commit",
+    "lint-staged",
+    "git-lfs",
+    "commitlint",
+    "overcommit",
+    "talisman",
+];
 
 fn git_global(env: &Env, key: &str) -> Option<String> {
     let out = Command::new("git")
@@ -69,17 +78,27 @@ fn check_hook(p: &Path, context: &str, report_unknown: bool, iocs: &Iocs) -> Opt
     let hits = patterns::scan_text(&text);
     if let Some(m) = iocs.has_marker(&text) {
         return Some(
-            Finding::new(Severity::High, Area::KnownMalware, "Git hook contains a known malware marker", format!("{context} mentions \"{m}\"."))
-                .path(p)
-                .quarantinable(),
+            Finding::new(
+                Severity::High,
+                Area::KnownMalware,
+                "Git hook contains a known malware marker",
+                format!("{context} mentions \"{m}\"."),
+            )
+            .path(p)
+            .quarantinable(),
         );
     }
     if let Some(sev) = patterns::worst(&hits) {
         let reasons: Vec<&str> = hits.iter().map(|h| h.reason).collect();
-        let mut f = Finding::new(sev, Area::Git, "Suspicious git hook", format!("{context} {}.", reasons.join("; ")))
-            .path(p)
-            .advice("Hooks run automatically on commit/push. If you didn't add this, quarantine it.")
-            .quarantinable();
+        let mut f = Finding::new(
+            sev,
+            Area::Git,
+            "Suspicious git hook",
+            format!("{context} {}.", reasons.join("; ")),
+        )
+        .path(p)
+        .advice("Hooks run automatically on commit/push. If you didn't add this, quarantine it.")
+        .quarantinable();
         if let Some((n, l)) = patterns::first_matching_line(&text) {
             f = f.line(n).evidence(l);
         }
@@ -87,10 +106,19 @@ fn check_hook(p: &Path, context: &str, report_unknown: bool, iocs: &Iocs) -> Opt
     }
     let known = KNOWN_HOOK_TOOLS.iter().any(|t| text.contains(t));
     (report_unknown && !known).then(|| {
-        Finding::new(Severity::Low, Area::Git, "Custom git hook", format!("{context} runs on git actions. It looks harmless, but check you recognise it."))
-            .path(p)
-            .evidence(patterns::excerpt(text.lines().find(|l| !l.starts_with('#') && !l.trim().is_empty()).unwrap_or("")))
-            .quarantinable()
+        Finding::new(
+            Severity::Low,
+            Area::Git,
+            "Custom git hook",
+            format!("{context} runs on git actions. It looks harmless, but check you recognise it."),
+        )
+        .path(p)
+        .evidence(patterns::excerpt(
+            text.lines()
+                .find(|l| !l.starts_with('#') && !l.trim().is_empty())
+                .unwrap_or(""),
+        ))
+        .quarantinable()
     })
 }
 
@@ -127,21 +155,38 @@ pub fn scan(env: &Env, found: &Discovered, iocs: &Iocs) -> Vec<Finding> {
     if let Some(td) = git_global(env, "init.templateDir") {
         let dir = expand_tilde(env, &td);
         out.push(
-            Finding::new(Severity::Low, Area::Git, "Git template folder is set",
-                format!("New and cloned repos copy hooks from {}.", dir.display()))
-                .path(&dir),
+            Finding::new(
+                Severity::Low,
+                Area::Git,
+                "Git template folder is set",
+                format!("New and cloned repos copy hooks from {}.", dir.display()),
+            )
+            .path(&dir),
         );
         for h in hook_files(&dir.join("hooks")) {
-            out.extend(check_hook(&h, "This template hook (copied into every new repo)", true, iocs));
+            out.extend(check_hook(
+                &h,
+                "This template hook (copied into every new repo)",
+                true,
+                iocs,
+            ));
         }
     }
     if let Some(helper) = git_global(env, "credential.helper") {
         if helper.trim() == "store" {
             out.push(
-                Finding::new(Severity::Medium, Area::Secrets, "Git saves passwords in plain text",
-                    "credential.helper=store keeps your GitHub token unencrypted in ~/.git-credentials.")
-                    .path(&env.home.join(".git-credentials"))
-                    .advice(if cfg!(target_os = "macos") { "Use the Keychain instead: git config --global credential.helper osxkeychain" } else { "Use an encrypted helper such as libsecret or Git Credential Manager." }),
+                Finding::new(
+                    Severity::Medium,
+                    Area::Secrets,
+                    "Git saves passwords in plain text",
+                    "credential.helper=store keeps your GitHub token unencrypted in ~/.git-credentials.",
+                )
+                .path(&env.home.join(".git-credentials"))
+                .advice(if cfg!(target_os = "macos") {
+                    "Use the Keychain instead: git config --global credential.helper osxkeychain"
+                } else {
+                    "Use an encrypted helper such as libsecret or Git Credential Manager."
+                }),
             );
         }
     }
@@ -153,7 +198,11 @@ pub fn scan(env: &Env, found: &Discovered, iocs: &Iocs) -> Vec<Finding> {
             out.extend(check_hook(&h, "This repository hook", true, iocs));
         }
         if let Some(hp) = ini_get(&config, "core", "hooksPath") {
-            let dir = if Path::new(&hp).is_absolute() { PathBuf::from(&hp) } else { repo.join(&hp) };
+            let dir = if Path::new(&hp).is_absolute() {
+                PathBuf::from(&hp)
+            } else {
+                repo.join(&hp)
+            };
             for h in hook_files(&dir) {
                 out.extend(check_hook(&h, "This repository hook", false, iocs));
             }

@@ -41,7 +41,11 @@ impl Env {
             home: dirs::home_dir().unwrap_or_else(|| PathBuf::from("/")),
             root: PathBuf::from("/"),
             os,
-            local_app_data: if os == Os::Windows { dirs::data_local_dir() } else { None },
+            local_app_data: if os == Os::Windows {
+                dirs::data_local_dir()
+            } else {
+                None
+            },
             app_data: if os == Os::Windows { dirs::data_dir() } else { None },
         }
     }

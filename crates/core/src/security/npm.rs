@@ -20,7 +20,11 @@ fn global_roots(env: &Env) -> Vec<PathBuf> {
         env.root.join("opt/homebrew/lib/node_modules"),
         env.root.join("usr/lib/node_modules"),
     ];
-    for base in [".nvm/versions/node", "Library/Application Support/fnm/node-versions", ".local/share/fnm/node-versions"] {
+    for base in [
+        ".nvm/versions/node",
+        "Library/Application Support/fnm/node-versions",
+        ".local/share/fnm/node-versions",
+    ] {
         if let Ok(rd) = std::fs::read_dir(env.home.join(base)) {
             for v in rd.flatten() {
                 roots.push(v.path().join("lib/node_modules"));
@@ -54,8 +58,12 @@ fn packages_in(nm: &Path) -> Vec<PathBuf> {
 }
 
 fn check_package(dir: &Path, iocs: &Iocs, out: &mut Vec<Finding>) {
-    let Some(text) = read_small(&dir.join("package.json"), 1024 * 1024) else { return };
-    let Ok(pkg) = serde_json::from_str::<Value>(&text) else { return };
+    let Some(text) = read_small(&dir.join("package.json"), 1024 * 1024) else {
+        return;
+    };
+    let Ok(pkg) = serde_json::from_str::<Value>(&text) else {
+        return;
+    };
     let name = pkg["name"].as_str().unwrap_or_default();
     let version = pkg["version"].as_str().unwrap_or_default();
 
@@ -79,9 +87,13 @@ fn check_package(dir: &Path, iocs: &Iocs, out: &mut Vec<Finding>) {
             );
         }
     }
-    let Some(scripts) = pkg["scripts"].as_object() else { return };
+    let Some(scripts) = pkg["scripts"].as_object() else {
+        return;
+    };
     for hook in INSTALL_HOOKS {
-        let Some(cmd) = scripts.get(*hook).and_then(Value::as_str) else { continue };
+        let Some(cmd) = scripts.get(*hook).and_then(Value::as_str) else {
+            continue;
+        };
         if let Some(m) = iocs.install_script_markers.iter().find(|m| cmd.contains(m.as_str())) {
             // `node bundle.js` alone is common; it's only the worm if the file is large & obfuscated.
             let bundle_only = m == "node bundle.js";
@@ -90,10 +102,14 @@ fn check_package(dir: &Path, iocs: &Iocs, out: &mut Vec<Finding>) {
                     .is_some_and(|t| patterns::worst(&patterns::scan_text(&t)) >= Some(Severity::Medium));
             if obfuscated {
                 out.push(
-                    Finding::new(Severity::High, Area::KnownMalware, format!("Worm install script in {name}"),
-                        format!("The \"{hook}\" script runs `{cmd}`, which matches the Shai-Hulud npm worm."))
-                        .path(&dir.join("package.json"))
-                        .evidence(cmd.to_string()),
+                    Finding::new(
+                        Severity::High,
+                        Area::KnownMalware,
+                        format!("Worm install script in {name}"),
+                        format!("The \"{hook}\" script runs `{cmd}`, which matches the Shai-Hulud npm worm."),
+                    )
+                    .path(&dir.join("package.json"))
+                    .evidence(cmd.to_string()),
                 );
                 continue;
             }
@@ -101,10 +117,17 @@ fn check_package(dir: &Path, iocs: &Iocs, out: &mut Vec<Finding>) {
         let hits = patterns::scan_text(cmd);
         if let Some(sev) = patterns::worst(&hits) {
             out.push(
-                Finding::new(sev.max(Severity::Medium), Area::Npm, format!("Risky install script in {name}"),
-                    format!("Its \"{hook}\" script {} — this runs automatically on npm install.", hits[0].reason))
-                    .path(&dir.join("package.json"))
-                    .evidence(patterns::excerpt(cmd)),
+                Finding::new(
+                    sev.max(Severity::Medium),
+                    Area::Npm,
+                    format!("Risky install script in {name}"),
+                    format!(
+                        "Its \"{hook}\" script {} — this runs automatically on npm install.",
+                        hits[0].reason
+                    ),
+                )
+                .path(&dir.join("package.json"))
+                .evidence(patterns::excerpt(cmd)),
             );
         }
     }
@@ -115,7 +138,9 @@ fn lock_entries(lock: &Value) -> Vec<(String, String)> {
     let mut out = Vec::new();
     if let Some(pkgs) = lock["packages"].as_object() {
         for (k, v) in pkgs {
-            let Some(name) = k.rsplit("node_modules/").next().filter(|n| !n.is_empty()) else { continue };
+            let Some(name) = k.rsplit("node_modules/").next().filter(|n| !n.is_empty()) else {
+                continue;
+            };
             if let Some(ver) = v["version"].as_str() {
                 out.push((name.to_string(), ver.to_string()));
             }
@@ -140,7 +165,9 @@ fn check_npmrc(env: &Env, out: &mut Vec<Finding>) {
     let p = env.home.join(".npmrc");
     let Some(text) = read_small(&p, 256 * 1024) else { return };
     for (i, line) in text.lines().enumerate() {
-        let Some((_, value)) = line.split_once("_authToken=") else { continue };
+        let Some((_, value)) = line.split_once("_authToken=") else {
+            continue;
+        };
         let value = value.trim();
         if value.starts_with("${") {
             continue;
@@ -172,8 +199,12 @@ pub fn scan(env: &Env, found: &Discovered, iocs: &Iocs, cancel: &Cancel) -> (Vec
         }
     }
     for lock in &found.lockfiles {
-        let Some(text) = read_small(lock, 64 * 1024 * 1024) else { continue };
-        let Ok(v) = serde_json::from_str::<Value>(&text) else { continue };
+        let Some(text) = read_small(lock, 64 * 1024 * 1024) else {
+            continue;
+        };
+        let Ok(v) = serde_json::from_str::<Value>(&text) else {
+            continue;
+        };
         for (name, ver) in lock_entries(&v) {
             if iocs.is_compromised(&name, &ver) {
                 out.push(
@@ -198,7 +229,10 @@ mod tests {
         let e = lock_entries(&v2);
         assert!(e.contains(&("chalk".into(), "5.6.1".into())));
         assert!(e.contains(&("@ctrl/tinycolor".into(), "4.1.1".into())));
-        let v1: Value = serde_json::from_str(r#"{"dependencies":{"debug":{"version":"4.4.2","dependencies":{"ms":{"version":"2.1.3"}}}}}"#).unwrap();
+        let v1: Value = serde_json::from_str(
+            r#"{"dependencies":{"debug":{"version":"4.4.2","dependencies":{"ms":{"version":"2.1.3"}}}}}"#,
+        )
+        .unwrap();
         assert_eq!(lock_entries(&v1).len(), 2);
     }
 }

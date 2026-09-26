@@ -4,6 +4,7 @@ description = "Mr.Clean desktop app"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish = false
 
 [lib]
 name = "mr_clean_lib"

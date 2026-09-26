@@ -1,0 +1,21 @@
+name: Security scanner false positive / missed threat
+description: The scanner flagged something harmless, or missed something bad
+labels: [scanner]
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Type
+      options: [False positive (harmless file flagged), Missed threat]
+    validations: { required: true }
+  - type: textarea
+    id: finding
+    attributes:
+      label: Finding and file content
+      description: Paste the finding title and the relevant lines. REMOVE any tokens or secrets.
+    validations: { required: true }
+  - type: input
+    id: source
+    attributes:
+      label: Public source (for missed threats)
+      description: Link to a write-up or advisory about the malware.
