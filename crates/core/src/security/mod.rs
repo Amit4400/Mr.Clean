@@ -290,6 +290,7 @@ pub struct QuarantineEntry {
 }
 
 /// `Label` of a launchd plist.
+#[cfg(unix)]
 fn launchd_label(plist_path: &Path) -> Option<String> {
     plist::Value::from_file(plist_path)
         .ok()?

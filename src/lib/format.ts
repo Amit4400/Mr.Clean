@@ -36,6 +36,23 @@ export function tildify(path: string, home: string | null): string {
   return path;
 }
 
+/** The separator a path uses ("\\" for Windows paths). */
+export function sepOf(path: string): string {
+  return /^[A-Za-z]:\\/.test(path) || (path.includes("\\") && !path.includes("/")) ? "\\" : "/";
+}
+
+/** Last part of a path, for either separator. */
+export function baseName(path: string): string {
+  return path.split(/[\\/]/).filter(Boolean).pop() ?? path;
+}
+
+/** Folder containing `path`, keeping its separator style. */
+export function parentOf(path: string): string {
+  const trimmed = path.replace(/[\\/]+$/, "");
+  const i = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"));
+  return i > 0 ? trimmed.slice(0, i) : sepOf(path);
+}
+
 export function percent(part: number, whole: number): number {
   return whole > 0 ? Math.round((part / whole) * 100) : 0;
 }

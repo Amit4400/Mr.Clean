@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ago, bytes, duration, percent, tildify } from "./format";
+import { ago, baseName, bytes, duration, parentOf, percent, sepOf, tildify } from "./format";
 
 describe("bytes", () => {
   it("uses decimal units like Finder", () => {
@@ -41,5 +41,16 @@ describe("helpers", () => {
     expect(tildify("/Users/me/Library/Caches", "/Users/me")).toBe("~/Library/Caches");
     expect(tildify("/opt/x", "/Users/me")).toBe("/opt/x");
     expect(tildify("/Users/me/x", null)).toBe("/Users/me/x");
+  });
+});
+
+describe("paths on every platform", () => {
+  it("splits both separators", () => {
+    expect(baseName("/Users/me/projects/shop")).toBe("shop");
+    expect(baseName("C:\\Users\\me\\projects\\shop")).toBe("shop");
+    expect(parentOf("/Users/me/projects/shop")).toBe("/Users/me/projects");
+    expect(parentOf("C:\\Users\\me\\shop")).toBe("C:\\Users\\me");
+    expect(sepOf("C:\\Users\\me")).toBe("\\");
+    expect(sepOf("/home/me")).toBe("/");
   });
 });

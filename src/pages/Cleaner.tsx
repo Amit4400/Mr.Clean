@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { AppIcon } from "../components/AppIcon";
 import { AnimatedNumber, Badge, Button, Card, Checkbox, Chip, Empty, Modal, Page, Skeleton, SoftTile, cx, type Tone } from "../components/ui";
 import { api } from "../lib/api";
-import { ago, bytes, tildify } from "../lib/format";
+import { ago, baseName, bytes, parentOf, tildify } from "../lib/format";
 import { useScanProgress, useStore } from "../lib/store";
 import { CHIPS, CHIP_LABEL, chipOf, toolOf, type ChipId } from "../lib/tools";
 import type { CleanRequest, NodeModulesHit, RuleScan, Safety } from "../lib/types";
@@ -376,8 +376,6 @@ function RuleRow({
   );
 }
 
-const baseName = (p: string) => p.split("/").filter(Boolean).pop() ?? p;
-const parentOf = (p: string) => p.slice(0, p.replace(/\/+$/, "").lastIndexOf("/")) || "/";
 
 const AGES = [
   { value: 30, label: "30 days" },

@@ -48,6 +48,11 @@ const USER_DATA: &[&str] = &[
     "Library/Photos",
     "OneDrive",
     "Dropbox",
+    "iCloudDrive",
+    "Favorites",
+    "Contacts",
+    "Saved Games",
+    "Links",
 ];
 
 /// Home-relative locations nothing may delete, whatever the policy.
@@ -60,10 +65,20 @@ const CRITICAL: &[&str] = &[
     ".mrclean",
     "Library/Keychains",
     "Library/Preferences",
+    // Windows: saved passwords, certificates and the keys that protect them.
+    "AppData/Roaming/Microsoft/Credentials",
+    "AppData/Local/Microsoft/Credentials",
+    "AppData/Roaming/Microsoft/Protect",
+    "AppData/Roaming/Microsoft/SystemCertificates",
+    "AppData/Local/Microsoft/Vault",
 ];
 
-/// Inside ~/Library a user-picked file may only be deleted from these.
-const LIBRARY_USER_ALLOWED: &[&str] = &["Library/Caches", "Library/Logs", "Library/Developer"];
+/// App-data folders (macOS ~/Library, Windows ~/AppData): a user-picked file
+/// may only be deleted from the listed caches and logs inside them.
+const APP_DATA_USER_ALLOWED: &[(&str, &[&str])] = &[
+    ("Library", &["Library/Caches", "Library/Logs", "Library/Developer"]),
+    ("AppData", &["AppData/Local/Temp", "AppData/Local/CrashDumps"]),
+];
 
 /// Absolute system locations nothing may delete.
 const SYSTEM: &[&str] = &[
@@ -83,6 +98,15 @@ const SYSTEM: &[&str] = &[
     "/lib",
     "/lib64",
     "/opt",
+    // Windows (relative to the system drive).
+    "/Windows",
+    "/Program Files",
+    "/Program Files (x86)",
+    "/ProgramData",
+    "/Users/Public",
+    "/Users/Default",
+    "/Recovery",
+    "/$Recycle.Bin",
 ];
 
 pub struct Guard<'a> {
@@ -206,14 +230,20 @@ impl<'a> Guard<'a> {
                 return Err(SafetyError::Protected(format!("~/{rel}")));
             }
         }
-        if p.starts_with(self.under_home("Library"))
-            && !LIBRARY_USER_ALLOWED
-                .iter()
-                .any(|rel| p.starts_with(self.under_home(rel)))
+        for (dir, allowed) in APP_DATA_USER_ALLOWED {
+            if p.starts_with(self.under_home(dir)) && !allowed.iter().any(|rel| p.starts_with(self.under_home(rel))) {
+                return Err(SafetyError::Protected(format!(
+                    "~/{dir} (app data — use the cleaner instead)"
+                )));
+            }
+        }
+        // Windows keeps the user's registry in ntuser.dat* files in the home folder.
+        let top_level = p.parent() == Some(home.as_path());
+        if top_level
+            && p.file_name()
+                .is_some_and(|n| n.to_string_lossy().to_ascii_lowercase().starts_with("ntuser"))
         {
-            return Err(SafetyError::Protected(
-                "~/Library (app data — use the cleaner instead)".into(),
-            ));
+            return Err(SafetyError::Protected("Windows user registry".into()));
         }
         if p.components().any(|c| c.as_os_str() == ".git") {
             return Err(SafetyError::Protected("inside a git repository's .git folder".into()));
@@ -596,5 +626,35 @@ mod tests {
             apple,
             r#"do shell script "echo \"a\\b\"" with administrator privileges"#
         );
+    }
+
+    #[test]
+    fn windows_layout_is_protected() {
+        let dir = tempfile::tempdir().unwrap();
+        let env = Env::sandboxed(dir.path(), Os::Windows);
+        let h = &env.home;
+        for d in [
+            "AppData/Local/Temp/setup",
+            "AppData/Roaming/Slack",
+            "AppData/Roaming/Microsoft/Credentials",
+            "Downloads",
+        ] {
+            fs::create_dir_all(h.join(d)).unwrap();
+        }
+        fs::write(h.join("NTUSER.DAT"), b"x").unwrap();
+        fs::write(h.join("Downloads/setup.exe"), b"x").unwrap();
+        fs::create_dir_all(env.root.join("Windows/System32")).unwrap();
+        fs::create_dir_all(env.root.join("Program Files/App")).unwrap();
+        let g = Guard::new(&env);
+        assert!(g.check_user_file(&h.join("Downloads/setup.exe")).is_ok());
+        assert!(g.check_user_file(&h.join("AppData/Local/Temp/setup")).is_ok());
+        assert!(g.check_user_file(&h.join("AppData/Roaming/Slack")).is_err());
+        assert!(g.check_user_file(&h.join("NTUSER.DAT")).is_err());
+        let all = [env.root.clone(), h.clone()];
+        assert!(g.check_cache(&env.root.join("Windows/System32"), &all).is_err());
+        assert!(g.check_cache(&env.root.join("Program Files/App"), &all).is_err());
+        assert!(g
+            .check_cache(&h.join("AppData/Roaming/Microsoft/Credentials"), &all)
+            .is_err());
     }
 }

@@ -52,7 +52,19 @@ pub fn disk_bytes(meta: &Metadata) -> u64 {
         use std::os::unix::fs::MetadataExt;
         meta.blocks() * 512
     }
-    #[cfg(not(unix))]
+    #[cfg(windows)]
+    {
+        // OneDrive / iCloud "online-only" files report their full length but
+        // hold no data locally (offline, recall-on-open or recall-on-access).
+        use std::os::windows::fs::MetadataExt;
+        const CLOUD: u32 = 0x1000 | 0x40000 | 0x400000;
+        if meta.file_attributes() & CLOUD != 0 {
+            0
+        } else {
+            meta.len()
+        }
+    }
+    #[cfg(not(any(unix, windows)))]
     {
         meta.len()
     }

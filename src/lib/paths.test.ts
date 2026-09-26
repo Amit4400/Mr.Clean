@@ -28,4 +28,14 @@ describe("isProtected", () => {
     expect(isProtected("/System/Library/x", false, HOME)).toBe(true);
     expect(isProtected("/Users/meother/file", false, HOME)).toBe(true);
   });
+  it("handles Windows paths the same way", () => {
+    const WH = "C:\\Users\\me";
+    expect(isProtected(`${WH}\\Downloads\\setup.exe`, false, WH)).toBe(false);
+    expect(isProtected(`${WH}\\AppData\\Local\\Temp\\x`, true, WH)).toBe(false);
+    expect(isProtected(`${WH}\\AppData\\Roaming\\Slack`, true, WH)).toBe(true);
+    expect(isProtected(`${WH}\\NTUSER.DAT`, false, WH)).toBe(true);
+    expect(isProtected(`${WH}\\Documents`, true, WH)).toBe(true);
+    expect(isProtected(`c:\\users\\ME\\Downloads\\a.zip`, false, WH)).toBe(false);
+    expect(isProtected("C:\\Windows\\System32\\x.dll", false, WH)).toBe(true);
+  });
 });

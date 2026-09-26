@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { Badge, Button, Card, Checkbox, Chip, Empty, Modal, Page, Skeleton, SoftTile, cx, type Tone } from "../components/ui";
 import { api } from "../lib/api";
-import { ago, bytes, percent, tildify } from "../lib/format";
+import { ago, bytes, percent, sepOf, tildify } from "../lib/format";
 import { isProtected } from "../lib/paths";
 import { useScanProgress, useStore } from "../lib/store";
 import type { Advice, Explanation, FileEntry, Kind, Node } from "../lib/types";
@@ -110,8 +110,10 @@ export default function LargeFiles() {
 
   const crumbs = useMemo(() => {
     if (!files || !cwd) return [];
-    const rel = cwd.slice(files.root.length).split("/").filter(Boolean);
-    return [{ name: tildify(files.root, home), path: files.root }, ...rel.map((n, i) => ({ name: n, path: files.root + "/" + rel.slice(0, i + 1).join("/") }))];
+    const sep = sepOf(files.root);
+    const rel = cwd.slice(files.root.length).split(/[\\/]/).filter(Boolean);
+    const base = files.root.replace(/[\\/]+$/, "");
+    return [{ name: tildify(files.root, home), path: files.root }, ...rel.map((n, i) => ({ name: n, path: base + sep + rel.slice(0, i + 1).join(sep) }))];
   }, [files, cwd, home]);
 
   const q = query.trim().toLowerCase();
