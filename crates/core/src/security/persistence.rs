@@ -245,6 +245,9 @@ pub fn scan(env: &Env) -> Vec<Finding> {
     if env.os != Os::Windows && env.root == Path::new("/") {
         out.extend(crontab(env));
     }
+    if env.os == Os::Windows {
+        out.extend(super::windows::scan(env));
+    }
     out
 }
 

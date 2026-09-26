@@ -81,6 +81,10 @@ fn main() {
         for f in &r.findings {
             println!("  [{:?}] {} — {}", f.severity, f.title, f.path.as_deref().unwrap_or(""));
         }
+        println!("\n== Protection");
+        for c in security::protection::checks() {
+            println!("  {:<32} {:?}", c.title, c.state);
+        }
     }
     if what == "memory" || what == "all" {
         memory::refresh(&mut sys);

@@ -17,8 +17,20 @@ const PROFILES: &[&str] = &[
     ".bash_profile",
     ".profile",
     ".config/fish/config.fish",
+    // PowerShell (Windows, and pwsh anywhere), including OneDrive-redirected Documents.
+    "Documents/PowerShell/Microsoft.PowerShell_profile.ps1",
+    "Documents/WindowsPowerShell/Microsoft.PowerShell_profile.ps1",
+    "OneDrive/Documents/PowerShell/Microsoft.PowerShell_profile.ps1",
+    "OneDrive/Documents/WindowsPowerShell/Microsoft.PowerShell_profile.ps1",
+    ".config/powershell/Microsoft.PowerShell_profile.ps1",
 ];
-const HISTORIES: &[&str] = &[".zsh_history", ".bash_history", ".local/share/fish/fish_history"];
+const HISTORIES: &[&str] = &[
+    ".zsh_history",
+    ".bash_history",
+    ".local/share/fish/fish_history",
+    "AppData/Roaming/Microsoft/Windows/PowerShell/PSReadLine/ConsoleHost_history.txt",
+    ".local/share/powershell/PSReadLine/ConsoleHost_history.txt",
+];
 
 fn token_re() -> &'static Regex {
     static R: OnceLock<Regex> = OnceLock::new();

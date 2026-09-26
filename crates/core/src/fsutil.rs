@@ -135,3 +135,17 @@ pub fn to_unix(t: SystemTime) -> Option<i64> {
 pub fn now_secs() -> i64 {
     to_unix(SystemTime::now()).unwrap_or(0)
 }
+
+/// A command for a system tool. On Windows it runs without flashing a
+/// console window (the app itself has none).
+pub fn command(program: &str) -> std::process::Command {
+    #[allow(unused_mut)]
+    let mut c = std::process::Command::new(program);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        c.creation_flags(CREATE_NO_WINDOW);
+    }
+    c
+}

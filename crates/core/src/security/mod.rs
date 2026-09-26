@@ -13,6 +13,7 @@ pub mod patterns;
 mod persistence;
 pub mod protection;
 mod shell;
+mod windows;
 
 use std::path::{Path, PathBuf};
 
@@ -66,7 +67,8 @@ pub struct Finding {
 pub enum Fix {
     /// `git config --global --unset core.hooksPath`
     UnsetGlobalHooksPath,
-    /// `git config --global credential.helper osxkeychain`
+    /// `git config --global credential.helper osxkeychain` (macOS) or
+    /// `manager` (Git Credential Manager on Windows).
     UseKeychainCredentials,
 }
 
@@ -74,6 +76,7 @@ impl Fix {
     pub fn git_args(self) -> &'static [&'static str] {
         match self {
             Fix::UnsetGlobalHooksPath => &["config", "--global", "--unset", "core.hooksPath"],
+            Fix::UseKeychainCredentials if cfg!(windows) => &["config", "--global", "credential.helper", "manager"],
             Fix::UseKeychainCredentials => &["config", "--global", "credential.helper", "osxkeychain"],
         }
     }
@@ -90,7 +93,7 @@ impl Fix {
 /// Apply a fix the user confirmed. Runs `git` with a fixed argument list
 /// against the user's global config.
 pub fn apply_fix(env: &Env, fix: Fix) -> Result<String, String> {
-    let out = std::process::Command::new("git")
+    let out = crate::fsutil::command("git")
         .args(fix.git_args())
         .env("HOME", &env.home)
         .env("XDG_CONFIG_HOME", env.home.join(".config"))
@@ -99,9 +102,14 @@ pub fn apply_fix(env: &Env, fix: Fix) -> Result<String, String> {
     if out.status.success() {
         Ok(match fix {
             Fix::UnsetGlobalHooksPath => "Global hooks folder removed from your git settings.".into(),
-            Fix::UseKeychainCredentials => {
-                "Git now uses the Keychain. Delete ~/.git-credentials after your next successful push.".into()
-            }
+            Fix::UseKeychainCredentials => format!(
+                "Git now uses the {}. Delete ~/.git-credentials after your next successful push.",
+                if cfg!(windows) {
+                    "Windows Credential Manager"
+                } else {
+                    "Keychain"
+                }
+            ),
         })
     } else {
         Err(String::from_utf8_lossy(&out.stderr).trim().to_string())

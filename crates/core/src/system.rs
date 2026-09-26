@@ -200,7 +200,7 @@ pub fn parse_hardware_json(json: &str) -> Option<(String, String)> {
 }
 
 fn run(cmd: &str, args: &[&str]) -> Option<String> {
-    let out = Command::new(cmd).args(args).output().ok()?;
+    let out = crate::fsutil::command(cmd).args(args).output().ok()?;
     out.status
         .success()
         .then(|| String::from_utf8_lossy(&out.stdout).trim().to_string())
