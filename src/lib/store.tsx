@@ -14,6 +14,7 @@ import type {
   SecurityReport,
   Summary,
 } from "./types";
+import { words } from "./platform";
 
 export type Page = "overview" | "clean" | "files" | "security" | "memory" | "settings";
 
@@ -141,7 +142,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const reportDelete = useCallback(
     (r: DeleteReport, mode: DeleteMode) => {
       if (r.removed.length) {
-        toast(`Freed ${bytes(r.bytes_freed)} — ${r.removed.length} item${r.removed.length > 1 ? "s" : ""} ${mode === "trash" ? "moved to Trash" : "deleted"}.`);
+        toast(`Freed ${bytes(r.bytes_freed)} — ${r.removed.length} item${r.removed.length > 1 ? "s" : ""} ${mode === "trash" ? `moved to ${words.trash}` : "deleted"}.`);
       }
       if (r.failed.length) {
         toast(`${r.failed.length} item${r.failed.length > 1 ? "s" : ""} couldn't be removed: ${r.failed[0].error}`, "error");

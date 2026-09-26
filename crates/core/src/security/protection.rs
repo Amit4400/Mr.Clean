@@ -3,8 +3,6 @@
 //! and reads its output. Fixing means opening the matching System Settings
 //! page; nothing is changed from here.
 
-use std::process::Command;
-
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -26,6 +24,13 @@ pub enum Pane {
     PrivacySecurity,
     SoftwareUpdate,
     Sharing,
+    // Windows
+    WindowsVirus,
+    WindowsFirewall,
+    WindowsAppBrowser,
+    WindowsUpdate,
+    DeviceEncryption,
+    RemoteDesktop,
 }
 
 impl Pane {
@@ -37,6 +42,12 @@ impl Pane {
             Pane::PrivacySecurity => "x-apple.systempreferences:com.apple.preference.security?General",
             Pane::SoftwareUpdate => "x-apple.systempreferences:com.apple.Software-Update-Settings.extension",
             Pane::Sharing => "x-apple.systempreferences:com.apple.Sharing-Settings.extension",
+            Pane::WindowsVirus => "windowsdefender://threat",
+            Pane::WindowsFirewall => "windowsdefender://network",
+            Pane::WindowsAppBrowser => "windowsdefender://appbrowser",
+            Pane::WindowsUpdate => "ms-settings:windowsupdate",
+            Pane::DeviceEncryption => "ms-settings:deviceencryption",
+            Pane::RemoteDesktop => "ms-settings:remotedesktop",
         }
     }
 }
@@ -106,7 +117,7 @@ pub fn parse_remote_login(out: &str) -> State {
 }
 
 fn run(cmd: &str, args: &[&str]) -> (String, bool) {
-    match Command::new(cmd).args(args).output() {
+    match crate::fsutil::command(cmd).args(args).output() {
         Ok(o) => (
             format!(
                 "{}{}",
@@ -119,8 +130,14 @@ fn run(cmd: &str, args: &[&str]) -> (String, bool) {
     }
 }
 
-/// Run every check. macOS only; other systems get an empty list.
+/// Run every check for this operating system.
 pub fn checks() -> Vec<Check> {
+    if cfg!(windows) {
+        return windows_checks();
+    }
+    if cfg!(target_os = "linux") {
+        return linux_checks();
+    }
     if !cfg!(target_os = "macos") {
         return vec![];
     }
@@ -189,6 +206,257 @@ pub fn checks() -> Vec<Check> {
     ]
 }
 
+// ----------------------------------------------------------------- Windows
+
+/// One PowerShell run that prints `key=value` lines (read-only queries).
+const WINDOWS_SCRIPT: &str = r#"$ErrorActionPreference='SilentlyContinue'
+$s=Get-MpComputerStatus; "defender=$($s.RealTimeProtectionEnabled)|$($s.AMRunningMode)"
+"firewall=" + ((Get-NetFirewallProfile | ForEach-Object { $_.Enabled }) -join ',')
+"bitlocker=" + (New-Object -ComObject Shell.Application).NameSpace($env:SystemDrive).Self.ExtendedProperty('System.Volume.BitLockerProtection')
+"wuauserv=" + (Get-Service wuauserv).StartType
+"smartscreen=" + (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer').SmartScreenEnabled
+"uac=" + (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System').EnableLUA
+"rdp=" + (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server').fDenyTSConnections
+"#;
+
+fn kv(out: &str) -> std::collections::HashMap<String, String> {
+    out.lines()
+        .filter_map(|l| l.split_once('='))
+        .map(|(k, v)| (k.trim().to_string(), v.trim().to_string()))
+        .collect()
+}
+
+/// Build the Windows checks from the script's `key=value` output.
+pub fn parse_windows(out: &str) -> Vec<Check> {
+    let m = kv(out);
+    let get = |k: &str| m.get(k).map(String::as_str).unwrap_or("");
+    let defender = {
+        let (on, mode) = get("defender").split_once('|').unwrap_or((get("defender"), ""));
+        if on.eq_ignore_ascii_case("true") || has(mode, "passive") {
+            State::Pass // passive = another antivirus is in charge
+        } else if on.eq_ignore_ascii_case("false") {
+            State::Fail
+        } else {
+            State::Unknown
+        }
+    };
+    let firewall = match get("firewall") {
+        "" => State::Unknown,
+        v if v
+            .split(',')
+            .all(|p| p.trim().eq_ignore_ascii_case("true") || p.trim() == "1") =>
+        {
+            State::Pass
+        }
+        _ => State::Fail,
+    };
+    // System.Volume.BitLockerProtection: 1 = on, 2 = off, 3 = encrypting; others unknown.
+    let bitlocker = match get("bitlocker") {
+        "1" | "3" | "5" => State::Pass,
+        "2" => State::Fail,
+        _ => State::Unknown,
+    };
+    let updates = match get("wuauserv") {
+        "" => State::Unknown,
+        v if v.eq_ignore_ascii_case("disabled") => State::Fail,
+        _ => State::Pass,
+    };
+    let smartscreen = if get("smartscreen").eq_ignore_ascii_case("off") {
+        State::Fail
+    } else {
+        State::Pass
+    };
+    let uac = match get("uac") {
+        "0" => State::Fail,
+        "1" => State::Pass,
+        _ => State::Unknown,
+    };
+    let rdp = if get("rdp") == "0" { State::Fail } else { State::Pass };
+    vec![
+        Check {
+            id: "defender",
+            title: "Virus protection",
+            about: "Microsoft Defender (or another antivirus) scans files as they open.",
+            state: defender,
+            pane: Some(Pane::WindowsVirus),
+            how: Some("In Windows Security, turn on Real-time protection."),
+        },
+        Check {
+            id: "firewall",
+            title: "Firewall",
+            about: "Blocks unwanted incoming connections on every network.",
+            state: firewall,
+            pane: Some(Pane::WindowsFirewall),
+            how: Some("Turn the firewall on for Domain, Private and Public networks."),
+        },
+        Check {
+            id: "bitlocker",
+            title: "Drive encryption (BitLocker)",
+            about: "Keeps your files unreadable if your PC is lost or stolen.",
+            state: bitlocker,
+            pane: Some(Pane::DeviceEncryption),
+            how: Some("Turn on Device encryption, or BitLocker in Control Panel on Pro editions."),
+        },
+        Check {
+            id: "updates",
+            title: "Windows Update",
+            about: "Installs security fixes as soon as Microsoft ships them.",
+            state: updates,
+            pane: Some(Pane::WindowsUpdate),
+            how: None,
+        },
+        Check {
+            id: "smartscreen",
+            title: "SmartScreen",
+            about: "Warns before you run unknown or harmful downloads.",
+            state: smartscreen,
+            pane: Some(Pane::WindowsAppBrowser),
+            how: Some("Under Reputation-based protection, turn on \"Check apps and files\"."),
+        },
+        Check {
+            id: "uac",
+            title: "User Account Control",
+            about: "Asks before apps make changes that need admin rights.",
+            state: uac,
+            pane: None,
+            how: Some("Search Start for \"UAC\", open Change User Account Control settings, and move the slider off the bottom."),
+        },
+        Check {
+            id: "remote_desktop",
+            title: "Remote Desktop off",
+            about: "When on, anyone with your password can sign in over the network.",
+            state: rdp,
+            pane: Some(Pane::RemoteDesktop),
+            how: Some("Turn off Remote Desktop unless you connect to this PC remotely."),
+        },
+    ]
+}
+
+fn windows_checks() -> Vec<Check> {
+    let (out, _) = run(
+        "powershell",
+        &["-NoProfile", "-NonInteractive", "-Command", WINDOWS_SCRIPT],
+    );
+    parse_windows(&out)
+}
+
+// ------------------------------------------------------------------- Linux
+
+pub fn parse_lsblk_encrypted(out: &str) -> State {
+    if out
+        .lines()
+        .any(|l| l.split_whitespace().any(|w| w == "crypt" || w == "crypto_LUKS"))
+    {
+        State::Pass
+    } else if out.trim().is_empty() {
+        State::Unknown
+    } else {
+        State::Fail
+    }
+}
+
+/// `/etc/ufw/ufw.conf` → ENABLED=yes|no.
+pub fn parse_ufw_conf(text: &str) -> State {
+    match text.lines().find_map(|l| l.trim().strip_prefix("ENABLED=")) {
+        Some(v) if v.trim_matches('"').eq_ignore_ascii_case("yes") => State::Pass,
+        Some(_) => State::Fail,
+        None => State::Unknown,
+    }
+}
+
+/// `/etc/apt/apt.conf.d/20auto-upgrades`.
+pub fn parse_auto_upgrades(text: &str) -> State {
+    let line = text.lines().find(|l| l.contains("Unattended-Upgrade"));
+    match line {
+        Some(l) if l.contains("\"1\"") => State::Pass,
+        Some(_) => State::Fail,
+        None => State::Fail,
+    }
+}
+
+fn linux_checks() -> Vec<Check> {
+    let (lsblk, _) = run("lsblk", &["-rno", "TYPE,FSTYPE"]);
+    let firewall = match std::fs::read_to_string("/etc/ufw/ufw.conf") {
+        Ok(t) => parse_ufw_conf(&t),
+        Err(_) => {
+            let (fw, _) = run("systemctl", &["is-active", "firewalld"]);
+            if fw.trim() == "active" {
+                State::Pass
+            } else {
+                State::Unknown
+            }
+        }
+    };
+    let updates = match std::fs::read_to_string("/etc/apt/apt.conf.d/20auto-upgrades") {
+        Ok(t) => parse_auto_upgrades(&t),
+        Err(_) if std::path::Path::new("/etc/apt").exists() => State::Fail,
+        Err(_) => State::Unknown,
+    };
+    let (ssh, _) = run("systemctl", &["is-active", "ssh", "sshd"]);
+    let ssh = if ssh.lines().any(|l| l.trim() == "active") {
+        State::Fail
+    } else {
+        State::Pass
+    };
+    let (lock, lock_ok) = run("gsettings", &["get", "org.gnome.desktop.screensaver", "lock-enabled"]);
+    let lock = match (lock_ok, lock.trim()) {
+        (true, "true") => State::Pass,
+        (true, "false") => State::Fail,
+        _ => State::Unknown,
+    };
+    let (sb, _) = run("mokutil", &["--sb-state"]);
+    vec![
+        Check {
+            id: "disk_encryption",
+            title: "Disk encryption",
+            about: "Keeps your files unreadable if your computer is lost or stolen.",
+            state: parse_lsblk_encrypted(&lsblk),
+            pane: None,
+            how: Some("Most Linux installers can only encrypt the whole disk during installation (\"Encrypt the new installation\"). Keep private files in an encrypted folder until you reinstall."),
+        },
+        Check {
+            id: "firewall",
+            title: "Firewall",
+            about: "Blocks unwanted incoming connections.",
+            state: firewall,
+            pane: None,
+            how: Some("Run: sudo ufw enable"),
+        },
+        Check {
+            id: "updates",
+            title: "Automatic security updates",
+            about: "Installs security fixes without waiting for you.",
+            state: updates,
+            pane: None,
+            how: Some("Run: sudo apt install unattended-upgrades && sudo dpkg-reconfigure -plow unattended-upgrades"),
+        },
+        Check {
+            id: "ssh",
+            title: "SSH server off",
+            about: "When on, anyone with your password can log in over the network.",
+            state: ssh,
+            pane: None,
+            how: Some("If you don't need it, run: sudo systemctl disable --now ssh"),
+        },
+        Check {
+            id: "screen_lock",
+            title: "Screen lock",
+            about: "Locks your screen when you step away.",
+            state: lock,
+            pane: None,
+            how: Some("Open Settings → Privacy → Screen Lock and turn on Automatic Screen Lock."),
+        },
+        Check {
+            id: "secure_boot",
+            title: "Secure Boot",
+            about: "Stops tampered boot software from starting before Linux.",
+            state: pass_fail(&sb, "SecureBoot enabled", "SecureBoot disabled"),
+            pane: None,
+            how: Some("Turn on Secure Boot in your computer's firmware (UEFI) settings."),
+        },
+    ]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -229,5 +497,59 @@ mod tests {
         ] {
             assert!(p.url().starts_with("x-apple.systempreferences:"));
         }
+        for p in [
+            Pane::WindowsVirus,
+            Pane::WindowsFirewall,
+            Pane::WindowsAppBrowser,
+            Pane::WindowsUpdate,
+            Pane::DeviceEncryption,
+            Pane::RemoteDesktop,
+        ] {
+            assert!(p.url().starts_with("ms-settings:") || p.url().starts_with("windowsdefender://"));
+        }
+    }
+
+    #[test]
+    fn parses_windows_output() {
+        let out = "defender=True|Normal\r\nfirewall=True,True,False\r\nbitlocker=2\r\nwuauserv=Manual\r\nsmartscreen=\r\nuac=1\r\nrdp=1\r\n";
+        let c = parse_windows(out);
+        let st = |id: &str| c.iter().find(|c| c.id == id).unwrap().state;
+        assert_eq!(st("defender"), State::Pass);
+        assert_eq!(st("firewall"), State::Fail, "one profile is off");
+        assert_eq!(st("bitlocker"), State::Fail);
+        assert_eq!(st("updates"), State::Pass);
+        assert_eq!(st("smartscreen"), State::Pass);
+        assert_eq!(st("uac"), State::Pass);
+        assert_eq!(st("remote_desktop"), State::Pass);
+        let c = parse_windows("defender=False|Passive Mode\nwuauserv=Disabled\nuac=0\nrdp=0\nsmartscreen=Off\n");
+        let st = |id: &str| c.iter().find(|c| c.id == id).unwrap().state;
+        assert_eq!(st("defender"), State::Pass, "another antivirus is active");
+        assert_eq!(st("updates"), State::Fail);
+        assert_eq!(st("uac"), State::Fail);
+        assert_eq!(st("remote_desktop"), State::Fail);
+        assert_eq!(st("smartscreen"), State::Fail);
+        assert_eq!(st("bitlocker"), State::Unknown);
+        assert_eq!(st("firewall"), State::Unknown);
+    }
+
+    #[test]
+    fn parses_linux_output() {
+        assert_eq!(
+            parse_lsblk_encrypted("disk \npart crypto_LUKS\ncrypt ext4\n"),
+            State::Pass
+        );
+        assert_eq!(parse_lsblk_encrypted("disk \npart ext4\npart vfat\n"), State::Fail);
+        assert_eq!(parse_ufw_conf("# comment\nENABLED=yes\nLOGLEVEL=low\n"), State::Pass);
+        assert_eq!(parse_ufw_conf("ENABLED=no\n"), State::Fail);
+        assert_eq!(
+            parse_auto_upgrades(
+                "APT::Periodic::Update-Package-Lists \"1\";\nAPT::Periodic::Unattended-Upgrade \"1\";\n"
+            ),
+            State::Pass
+        );
+        assert_eq!(
+            parse_auto_upgrades("APT::Periodic::Unattended-Upgrade \"0\";\n"),
+            State::Fail
+        );
     }
 }

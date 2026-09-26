@@ -34,12 +34,22 @@ pub struct Env {
     pub app_data: Option<PathBuf>,
 }
 
+/// "/" on macOS and Linux; the system drive (usually `C:\`) on Windows.
+fn system_root(os: Os) -> PathBuf {
+    if os == Os::Windows {
+        let drive = std::env::var("SystemDrive").unwrap_or_else(|_| "C:".into());
+        PathBuf::from(format!("{drive}\\"))
+    } else {
+        PathBuf::from("/")
+    }
+}
+
 impl Env {
     pub fn detect() -> Self {
         let os = Os::current();
         Env {
             home: dirs::home_dir().unwrap_or_else(|| PathBuf::from("/")),
-            root: PathBuf::from("/"),
+            root: system_root(os),
             os,
             local_app_data: if os == Os::Windows {
                 dirs::data_local_dir()

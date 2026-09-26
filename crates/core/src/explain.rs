@@ -86,6 +86,26 @@ const KNOWN: &[(&str, &str, &str, Advice)] = &[
     (".ssh", "SSH keys", "Your SSH keys for GitHub and servers. Never delete.", LeaveIt),
     (".config", "Tool settings", "Settings for command-line tools.", LeaveIt),
     (".local", "Tool data", "Programs and data installed by command-line tools.", CheckFirst),
+    // Windows
+    ("AppData", "App data", "Settings, caches and data for your apps. Never delete the folder itself; the Clean page clears the safe parts inside it.", LeaveIt),
+    ("AppData/Local", "Local app data", "Apps' caches and data that stay on this PC. Pick a folder inside to see which app it belongs to.", UseTheApp),
+    ("AppData/LocalLow", "Low-trust app data", "Data from apps that run with limited rights, such as browser plug-ins and games.", UseTheApp),
+    ("AppData/Roaming", "Roaming app data", "Apps' settings and data (and on work PCs, synced between computers). Deleting parts can reset an app.", UseTheApp),
+    ("AppData/Local/Temp", "Temporary files", "Files left by apps and installers. Safe to clear; files in use are skipped.", SafeToDelete),
+    ("AppData/Local/Packages", "Microsoft Store apps", "Data of apps installed from the Microsoft Store. Remove it by uninstalling the app or with Settings → Apps → Advanced options → Reset.", UseTheApp),
+    ("AppData/Local/CrashDumps", "Crash dumps", "Memory dumps left after apps crashed. Safe to delete.", SafeToDelete),
+    ("OneDrive", "OneDrive", "Your OneDrive files. Deleting here deletes them in the cloud too. Files marked \"online-only\" don't use space on this PC.", Yours),
+    ("Videos", "Videos", "Your videos and screen recordings, often large.", Yours),
+    ("Saved Games", "Saved games", "Game saves. Deleting them loses your progress.", Yours),
+    ("Favorites", "Favorites", "Old Internet Explorer favourites.", Yours),
+    // Linux
+    (".local/share", "App data", "Data apps keep for you (for example Flatpak apps, fonts, keyrings, Steam). Pick a folder inside to see which app it belongs to.", UseTheApp),
+    (".local/share/Trash", "Trash", "Files you already deleted. Empty the Trash to get the space back.", SafeToDelete),
+    (".local/share/flatpak", "Flatpak apps", "Apps installed with Flatpak and the runtimes they share. Remove unused runtimes with `flatpak uninstall --unused`.", UseTheApp),
+    ("snap", "Snap app data", "Settings and data of apps installed as snaps (each app has its own folder).", UseTheApp),
+    (".var", "Flatpak app data", "Settings and data of Flatpak apps. Each folder belongs to one app.", UseTheApp),
+    (".mozilla", "Firefox profile", "Your Firefox bookmarks, passwords and history. Never delete.", LeaveIt),
+    (".steam", "Steam", "Steam and your installed games. Uninstall games from Steam.", UseTheApp),
 ];
 
 /// `com.apple.foo`, `group.com.x`, `UBF8T346G9.Office`: looks like a bundle ID.
@@ -146,7 +166,26 @@ pub fn explain(env: &Env, path: &Path) -> Option<Explanation> {
     // A folder inside a well-known app-data location: say which app it belongs to.
     let parent_rel = rel.as_deref().map(|r| r.rsplit_once('/').map_or("", |(p, _)| p));
     let app = || app_for(env, &name);
+    // Windows and Linux: app folders are named after the app itself.
+    let owner = || {
+        let n = name.split('_').next().unwrap_or(&name); // Store packages: Name_publisherhash
+        n.rsplit('.').next().filter(|t| !t.is_empty()).unwrap_or(n).to_string()
+    };
+    let app_data = |where_: &str| {
+        let who = owner();
+        ex(
+            format!("Data for {who}"),
+            format!("{where_} kept by \"{name}\". Deleting it can reset that app or sign you out. If you no longer use the app, uninstall it instead."),
+            UseTheApp,
+        )
+    };
     match parent_rel {
+        Some("AppData/Local" | "AppData/Roaming" | "AppData/LocalLow") if name.eq_ignore_ascii_case("Temp") => None,
+        Some("AppData/Local" | "AppData/Roaming" | "AppData/LocalLow") => app_data("Settings, caches and data"),
+        Some("AppData/Local/Packages") => app_data("Microsoft Store app data"),
+        Some(".config") => ex(format!("Settings for {name}"), format!("Settings of \"{name}\". Deleting them resets that app."), UseTheApp),
+        Some(".local/share" | ".var/app" | "snap") => app_data("Data"),
+        Some(".cache") => ex(format!("Cache of {name}"), format!("Temporary files \"{name}\" rebuilds when needed. Safe to clear."), SafeToDelete),
         Some("Library/Caches") => {
             let who = app().unwrap_or_else(|| name.clone());
             ex(format!("Cache of {who}"), format!("Temporary files {who} rebuilds when needed. Safe to clear; quit the app first."), SafeToDelete)
@@ -245,5 +284,44 @@ mod tests {
         );
         assert_eq!(explain(&env, &h.join(".someweirdtool")).unwrap().advice, CheckFirst);
         assert!(explain(&env, &h.join("projects/shop")).is_none());
+    }
+
+    #[test]
+    fn windows_and_linux_folders() {
+        let d = tempfile::tempdir().unwrap();
+        let env = Env::sandboxed(d.path(), Os::Windows);
+        let h = &env.home;
+        assert_eq!(
+            explain(&env, &h.join("AppData/Local/Temp")).unwrap().advice,
+            SafeToDelete
+        );
+        assert_eq!(
+            explain(&env, &h.join("AppData/Roaming/Slack")).unwrap().title,
+            "Data for Slack"
+        );
+        assert_eq!(
+            explain(
+                &env,
+                &h.join("AppData/Local/Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe")
+            )
+            .unwrap()
+            .title,
+            "Data for WindowsTerminal"
+        );
+        assert_eq!(explain(&env, &h.join("OneDrive")).unwrap().advice, Yours);
+        let env = Env::sandboxed(d.path(), Os::Linux);
+        let h = &env.home;
+        assert_eq!(
+            explain(&env, &h.join(".config/Code")).unwrap().title,
+            "Settings for Code"
+        );
+        assert_eq!(
+            explain(&env, &h.join(".cache/thumbnails")).unwrap().advice,
+            SafeToDelete
+        );
+        assert_eq!(
+            explain(&env, &h.join("snap/firefox")).unwrap().title,
+            "Data for firefox"
+        );
     }
 }

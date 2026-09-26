@@ -235,6 +235,11 @@ fn fixes_are_fixed_git_commands() {
     );
     assert_eq!(
         Fix::UseKeychainCredentials.git_args(),
-        ["config", "--global", "credential.helper", "osxkeychain"]
+        [
+            "config",
+            "--global",
+            "credential.helper",
+            if cfg!(windows) { "manager" } else { "osxkeychain" }
+        ]
     );
 }

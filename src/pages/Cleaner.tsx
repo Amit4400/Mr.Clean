@@ -5,10 +5,11 @@ import { useMemo, useState } from "react";
 import { AppIcon } from "../components/AppIcon";
 import { AnimatedNumber, Badge, Button, Card, Checkbox, Chip, Empty, Modal, Page, Skeleton, SoftTile, cx, type Tone } from "../components/ui";
 import { api } from "../lib/api";
-import { ago, bytes, tildify } from "../lib/format";
+import { ago, baseName, bytes, parentOf, tildify } from "../lib/format";
 import { useScanProgress, useStore } from "../lib/store";
 import { CHIPS, CHIP_LABEL, chipOf, toolOf, type ChipId } from "../lib/tools";
 import type { CleanRequest, NodeModulesHit, RuleScan, Safety } from "../lib/types";
+import { words } from "../lib/platform";
 
 const SAFETY: Record<Safety, { label: string; tone: Tone }> = {
   safe: { label: "Safe", tone: "safe" },
@@ -23,6 +24,7 @@ const GENERIC: Record<string, LucideIcon> = {
   "linux-cache": Box,
   "user-logs": ScrollText,
   "win-temp": Clock,
+  "win-crash-dumps": ScrollText,
   trash: Trash2,
 };
 
@@ -167,7 +169,7 @@ export default function Cleaner() {
                     <div className="mt-1 text-[13px] font-medium text-ink/80">selected to clean</div>
                     <div className="mt-0.5 line-clamp-2 text-[12px] text-muted">
                       {bytes(cleaner.total_bytes)} found in {itemCount.toLocaleString()} items · {bytes(cleaner.safe_bytes)} marked safe ·{" "}
-                      {deleteMode === "trash" ? "items go to the Trash" : "items are deleted permanently"}
+                      {deleteMode === "trash" ? `items go to the ${words.trash}` : "items are deleted permanently"}
                     </div>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1.5">
@@ -253,14 +255,14 @@ export default function Cleaner() {
               Cancel
             </Button>
             <Button variant="danger" busy={cleaning} onClick={clean}>
-              {deleteMode === "trash" ? "Move to Trash" : "Delete permanently"}
+              {deleteMode === "trash" ? `Move to ${words.trash}` : "Delete permanently"}
             </Button>
           </>
         }
       >
         <p className="mb-3 text-muted">
           {selected.count} item{selected.count === 1 ? "" : "s"} will be{" "}
-          {deleteMode === "trash" ? "moved to the Trash. Empty the Trash to get the space back." : "deleted permanently."}
+          {deleteMode === "trash" ? `moved to the ${words.trash}. Empty the ${words.trash} to get the space back.` : "deleted permanently."}
         </p>
         <ul className="space-y-1.5">
           {selected.lines.map((l) => (
@@ -376,8 +378,6 @@ function RuleRow({
   );
 }
 
-const baseName = (p: string) => p.split("/").filter(Boolean).pop() ?? p;
-const parentOf = (p: string) => p.slice(0, p.replace(/\/+$/, "").lastIndexOf("/")) || "/";
 
 const AGES = [
   { value: 30, label: "30 days" },
@@ -451,7 +451,7 @@ function NodeModulesPanel() {
         </Button>
       ) : list.length === 0 ? (
         <p className="py-4 text-center text-[12.5px] text-muted">
-          {inCloud ? "Nothing to free: your node_modules folders are stored in iCloud, not on this Mac." : "No node_modules folders found in your projects."}
+          {inCloud ? `Nothing to free: your node_modules folders are stored in the cloud, not on this ${words.computer}.` : "No node_modules folders found in your projects."}
         </p>
       ) : (
         <>
@@ -497,7 +497,7 @@ function NodeModulesPanel() {
           </ul>
           {inCloud > 0 && (
             <p className="mt-2 text-[11px] text-faint">
-              {inCloud} more project{inCloud === 1 ? " is" : "s are"} stored in iCloud and {inCloud === 1 ? "doesn't" : "don't"} use space on this Mac.
+              {inCloud} more project{inCloud === 1 ? " is" : "s are"} stored in the cloud and {inCloud === 1 ? "doesn't" : "don't"} use space on this {words.computer}.
             </p>
           )}
           <Button variant="danger" className="mt-3 w-full" disabled={sel.size === 0} busy={removing} onClick={remove}>

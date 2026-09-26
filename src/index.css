@@ -33,7 +33,7 @@
   --color-purple: var(--c-purple);
   --color-teal: var(--c-teal);
   --color-indigo: var(--c-indigo);
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable", "Segoe UI", Inter, Roboto, "Helvetica Neue", sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable", "Segoe UI", Inter, Ubuntu, Cantarell, "Noto Sans", Roboto, "Helvetica Neue", sans-serif;
   --font-mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
 }
 

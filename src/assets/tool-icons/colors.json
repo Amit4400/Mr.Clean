@@ -25,5 +25,12 @@
   "unity": "#FFFFFF",
   "googlechrome": "#4285F4",
   "cursor": "#000000",
-  "kotlin": "#7F52FF"
+  "kotlin": "#7F52FF",
+  "dotnet": "#512BD4",
+  "nuget": "#004880",
+  "ubuntu": "#E95420",
+  "debian": "#A81D33",
+  "linux": "#FCC624",
+  "flatpak": "#4A90D9",
+  "snapcraft": "#E95420"
 }

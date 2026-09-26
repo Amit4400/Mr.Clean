@@ -373,7 +373,10 @@ mod tests {
         assert_eq!(jb.len(), 1);
         assert!(jb[0].ends_with("AndroidStudio2024.1"));
         let caches = names("user-caches");
-        assert!(caches.iter().any(|p| p.ends_with("Google/Chrome")), "{caches:?}");
+        assert!(
+            caches.iter().any(|p| p.replace('\\', "/").ends_with("Google/Chrome")),
+            "{caches:?}"
+        );
         assert!(!caches.iter().any(|p| p.contains("AndroidStudio")));
     }
 
@@ -390,6 +393,53 @@ mod tests {
         assert_eq!(rt.items.len(), 1, "{:?}", rt.items);
         assert!(rt.items[0].name.starts_with("Simulator runtime 7D832126"));
         assert!(rt.total_bytes < 100_000);
+    }
+
+    #[test]
+    fn windows_jetbrains_keeps_toolbox_apps() {
+        let d = tempfile::tempdir().unwrap();
+        let env = Env::sandboxed(d.path(), Os::Windows);
+        let local = env.local_app_data.clone().unwrap();
+        write(&local.join("JetBrains/IntelliJIdea2024.1/caches/x"), 10_000);
+        write(&local.join("JetBrains/Toolbox/apps/IDEA-U/idea.exe"), 50_000);
+        write(&local.join("Google/AndroidStudio2024.1/caches/y"), 10_000);
+        write(&local.join("Temp/setup.tmp"), 5_000);
+        write(&local.join("NuGet/v3-cache/pkg"), 5_000);
+        let s = scan(&env, &Cancel::new(), &Progress::default());
+        let jb = s.rules.iter().find(|r| r.rule.id == "jetbrains").unwrap();
+        assert_eq!(jb.items.len(), 2, "{:?}", jb.items);
+        assert!(jb.items.iter().all(|i| !i.path.contains("Toolbox")));
+        let ids: Vec<_> = s.rules.iter().map(|r| r.rule.id).collect();
+        assert!(ids.contains(&"win-temp") && ids.contains(&"nuget"), "{ids:?}");
+    }
+
+    #[test]
+    fn linux_editor_caches_are_found_once() {
+        let d = tempfile::tempdir().unwrap();
+        let env = Env::sandboxed(d.path(), Os::Linux);
+        let h = env.home.clone();
+        write(&h.join(".config/Code/CachedData/abc/x"), 10_000);
+        write(&h.join(".cache/JetBrains/PyCharm2024.1/index"), 10_000);
+        write(&h.join(".cache/pip/http/x"), 10_000);
+        write(&h.join(".cache/fontconfig/x"), 10_000);
+        let s = scan(&env, &Cancel::new(), &Progress::default());
+        let items = |id: &str| {
+            s.rules
+                .iter()
+                .find(|r| r.rule.id == id)
+                .map(|r| r.items.len())
+                .unwrap_or(0)
+        };
+        assert_eq!(items("vscode"), 1);
+        assert_eq!(items("jetbrains"), 1);
+        assert_eq!(items("pip"), 1);
+        let cache = s.rules.iter().find(|r| r.rule.id == "linux-cache").unwrap();
+        assert_eq!(
+            cache.items.len(),
+            1,
+            "only fontconfig is left for the generic rule: {:?}",
+            cache.items
+        );
     }
 
     #[test]

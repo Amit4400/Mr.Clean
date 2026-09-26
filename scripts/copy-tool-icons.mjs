@@ -12,6 +12,7 @@ const TOOLS = [
   "npm", "yarn", "pnpm", "bun", "homebrew", "rust", "python", "gradle", "android", "androidstudio",
   "xcode", "apple", "docker", "flutter", "dart", "cocoapods", "go", "jetbrains", "swift", "electron",
   "nodedotjs", "deno", "expo", "unity", "googlechrome", "cursor", "kotlin",
+  "dotnet", "nuget", "ubuntu", "debian", "linux", "flatpak", "snapcraft",
 ];
 
 const bySlug = Object.fromEntries(Object.values(si).map((i) => [i.slug, i]));

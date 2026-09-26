@@ -138,6 +138,31 @@ pub fn refresh(sys: &mut System) {
 }
 
 /// "Google Chrome Helper (Renderer)" → "Google Chrome": the outermost .app.
+/// Friendly names for common Windows/Linux process names.
+const FRIENDLY: &[(&str, &str)] = &[
+    ("chrome", "Google Chrome"),
+    ("google-chrome", "Google Chrome"),
+    ("msedge", "Microsoft Edge"),
+    ("firefox", "Firefox"),
+    ("code", "VS Code"),
+    ("cursor", "Cursor"),
+    ("slack", "Slack"),
+    ("discord", "Discord"),
+    ("spotify", "Spotify"),
+    ("teams", "Microsoft Teams"),
+    ("ms-teams", "Microsoft Teams"),
+    ("idea64", "IntelliJ IDEA"),
+    ("idea", "IntelliJ IDEA"),
+    ("studio64", "Android Studio"),
+    ("studio", "Android Studio"),
+    ("docker desktop", "Docker Desktop"),
+    ("com.docker.backend", "Docker Desktop"),
+    ("node", "Node.js"),
+    ("claude", "Claude"),
+    ("postman", "Postman"),
+    ("zoom", "Zoom"),
+];
+
 pub fn app_name(name: &str, exe: Option<&Path>) -> String {
     if let Some(exe) = exe {
         for c in exe.components() {
@@ -147,7 +172,16 @@ pub fn app_name(name: &str, exe: Option<&Path>) -> String {
             }
         }
     }
-    name.to_string()
+    let base = name
+        .strip_suffix(".exe")
+        .or_else(|| name.strip_suffix(".EXE"))
+        .unwrap_or(name);
+    let lower = base.to_ascii_lowercase();
+    FRIENDLY
+        .iter()
+        .find(|(k, _)| *k == lower)
+        .map(|(_, v)| v.to_string())
+        .unwrap_or_else(|| base.to_string())
 }
 
 pub fn classify(name: &str, cmd: &str, parent_is_init: bool) -> Option<DevKind> {
@@ -507,12 +541,20 @@ Anonymous pages:                         250000.
     }
 
     #[test]
+    fn app_names_on_windows_and_linux() {
+        assert_eq!(app_name("chrome.exe", None), "Google Chrome");
+        assert_eq!(app_name("idea64.exe", None), "IntelliJ IDEA");
+        assert_eq!(app_name("code", None), "VS Code");
+        assert_eq!(app_name("MyTool.exe", None), "MyTool");
+    }
+
+    #[test]
     fn app_names_from_bundles() {
         let exe = Path::new(
             "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Helper (Renderer).app/Contents/MacOS/x",
         );
         assert_eq!(app_name("Google Chrome Helper", Some(exe)), "Google Chrome");
-        assert_eq!(app_name("node", Some(Path::new("/usr/local/bin/node"))), "node");
+        assert_eq!(app_name("node", Some(Path::new("/usr/local/bin/node"))), "Node.js");
     }
 
     #[test]

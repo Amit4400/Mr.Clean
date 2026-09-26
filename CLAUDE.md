@@ -4,7 +4,7 @@ Guidance for Claude Code (and any AI assistant) working in this repository. Huma
 
 ## What this is
 
-Mr.Clean is a Tauri 2 desktop app that frees disk space on developer machines, finds large files, scans for developer-targeted malware, and shows RAM use. macOS is the first platform; Linux works; Windows is planned.
+Mr.Clean is a Tauri 2 desktop app that frees disk space on developer machines, finds large files, scans for developer-targeted malware, and shows RAM use. It runs on macOS, Windows and Linux; macOS gets the most polish.
 
 ```
 crates/core/        All logic, no UI. Every behaviour lives and is tested here.

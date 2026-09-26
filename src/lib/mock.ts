@@ -4,6 +4,27 @@
 const GB = 1e9;
 const MB = 1e6;
 const HOME = "/Users/demo";
+
+/** Preview another OS in the browser with `?platform=windows` or `?platform=linux`. */
+export const previewPlatform = typeof location !== "undefined" ? new URLSearchParams(location.search).get("platform") : null;
+
+const WINDOWS_CHECKS = [
+  { id: "defender", title: "Virus protection", about: "Microsoft Defender (or another antivirus) scans files as they open.", state: "pass", pane: "windows_virus", how: null },
+  { id: "firewall", title: "Firewall", about: "Blocks unwanted incoming connections on every network.", state: "fail", pane: "windows_firewall", how: "Turn the firewall on for Domain, Private and Public networks." },
+  { id: "bitlocker", title: "Drive encryption (BitLocker)", about: "Keeps your files unreadable if your PC is lost or stolen.", state: "fail", pane: "device_encryption", how: "Turn on Device encryption, or BitLocker in Control Panel on Pro editions." },
+  { id: "updates", title: "Windows Update", about: "Installs security fixes as soon as Microsoft ships them.", state: "pass", pane: "windows_update", how: null },
+  { id: "smartscreen", title: "SmartScreen", about: "Warns before you run unknown or harmful downloads.", state: "pass", pane: "windows_app_browser", how: null },
+  { id: "uac", title: "User Account Control", about: "Asks before apps make changes that need admin rights.", state: "pass", pane: null, how: null },
+  { id: "remote_desktop", title: "Remote Desktop off", about: "When on, anyone with your password can sign in over the network.", state: "pass", pane: "remote_desktop", how: null },
+];
+const LINUX_CHECKS = [
+  { id: "disk_encryption", title: "Disk encryption", about: "Keeps your files unreadable if your computer is lost or stolen.", state: "fail", pane: null, how: "Most Linux installers can only encrypt the whole disk during installation (\"Encrypt the new installation\"). Keep private files in an encrypted folder until you reinstall." },
+  { id: "firewall", title: "Firewall", about: "Blocks unwanted incoming connections.", state: "fail", pane: null, how: "Run: sudo ufw enable" },
+  { id: "updates", title: "Automatic security updates", about: "Installs security fixes without waiting for you.", state: "pass", pane: null, how: null },
+  { id: "ssh", title: "SSH server off", about: "When on, anyone with your password can log in over the network.", state: "pass", pane: null, how: null },
+  { id: "screen_lock", title: "Screen lock", about: "Locks your screen when you step away.", state: "pass", pane: null, how: null },
+  { id: "secure_boot", title: "Secure Boot", about: "Stops tampered boot software from starting before Linux.", state: "unknown", pane: null, how: "Turn on Secure Boot in your computer's firmware (UEFI) settings." },
+];
 const now = Math.floor(Date.now() / 1000);
 const day = 86400;
 
@@ -144,7 +165,10 @@ export async function mock<T>(cmd: string, args?: Record<string, unknown>): Prom
     case "system_info":
       return r({ hostname: "demo-mbp", os_name: "macOS", os_version: "macOS 15.3 Sequoia", model: "MacBookAir10,1", cpu_brand: "Apple M1", cpu_cores: 8, uptime_secs: 3 * day + 5000, disk: { name: "Macintosh HD", mount: "/System/Volumes/Data", total_bytes: 1000 * GB, free_bytes: 658 * GB }, memory: memory() });
     case "memory_live": return r(memory(), 20);
-    case "device_info": return r({ name: "MacBook Pro", chip: "Apple M2 Pro", memory_bytes: 16 * GB, os_label: "macOS Sonoma 14.5", kind: "laptop" }, 80);
+    case "device_info":
+      if (previewPlatform === "windows") return r({ name: "Lenovo ThinkPad X1 Carbon Gen 11", chip: "13th Gen Intel Core i7-1365U", memory_bytes: 16 * GB, os_label: "Windows 11 Pro", kind: "laptop", os: "windows" }, 80);
+      if (previewPlatform === "linux") return r({ name: "Dell XPS 13 9310", chip: "11th Gen Intel Core i7-1185G7", memory_bytes: 16 * GB, os_label: "Ubuntu 24.04.1 LTS", kind: "laptop", os: "linux" }, 80);
+      return r({ name: "MacBook Pro", chip: "Apple M2 Pro", memory_bytes: 16 * GB, os_label: "macOS Sonoma 14.5", kind: "laptop", os: "mac" }, 80);
     case "memory_breakdown": return r({ total: 16 * GB, apps: 4.2 * GB, wired: 1.1 * GB, compressed: 0.5 * GB, free: 10.2 * GB }, 20);
     case "app_icon": return r(null, 0);
     case "folder_explain": {
@@ -185,7 +209,10 @@ export async function mock<T>(cmd: string, args?: Record<string, unknown>): Prom
     case "security_quarantine": return r({ id: "q1", original: "x", stored: "y", reason: "z", at: now, mode: null, stopped: true });
     case "security_fix": return r("Git now uses the Keychain. Delete ~/.git-credentials after your next successful push.", 300);
     case "open_settings": return r(undefined, 0);
-    case "protection_checks": return r([
+    case "protection_checks":
+      if (previewPlatform === "windows") return r(WINDOWS_CHECKS, 400);
+      if (previewPlatform === "linux") return r(LINUX_CHECKS, 400);
+      return r([
       { id: "filevault", title: "FileVault disk encryption", about: "Keeps your files unreadable if your Mac is lost or stolen.", state: "pass", pane: "file_vault", how: null },
       { id: "firewall", title: "Firewall", about: "Blocks unwanted incoming connections.", state: "fail", pane: "firewall", how: null },
       { id: "gatekeeper", title: "Gatekeeper", about: "Only lets apps from identified developers open.", state: "pass", pane: "privacy_security", how: null },

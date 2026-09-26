@@ -22,6 +22,7 @@ export interface DeviceInfo {
   memory_bytes: number;
   os_label: string;
   kind: DeviceKind;
+  os: "mac" | "linux" | "windows";
 }
 
 export interface MemoryBreakdown {

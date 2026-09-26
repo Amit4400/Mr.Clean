@@ -10,6 +10,7 @@ import { bytes } from "../lib/format";
 import { greeting, health } from "../lib/health";
 import { useStore, type ScanStep } from "../lib/store";
 import type { SystemInfo } from "../lib/types";
+import { words } from "../lib/platform";
 
 const BIG_FILE = 500e6;
 
@@ -61,7 +62,7 @@ export default function Overview() {
     highThreats: security?.counts.high ?? 0,
     mediumThreats: security?.counts.medium ?? 0,
     junkBytes: cleaner?.safe_bytes ?? null,
-  });
+  }, words.computer);
 
   return (
     <motion.div className="mx-auto max-w-[1180px] px-8 pb-6 pt-6" variants={stagger} initial="hidden" animate="show">
@@ -75,7 +76,7 @@ export default function Overview() {
         <Card className="flex min-w-0 items-center gap-4 py-3 pl-4 pr-3">
           <DeviceArt kind={device?.kind ?? "laptop"} width={96} />
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[15px] font-semibold">{device?.name ?? "This Mac"}</div>
+            <div className="truncate text-[15px] font-semibold">{device?.name ?? `This ${words.computer}`}</div>
             <div className="line-clamp-2 text-[12px] text-muted">
               {device ? [device.chip.replace(/^Apple /, ""), bytes(device.memory_bytes, 0), device.os_label].filter(Boolean).join("  •  ") : "Loading…"}
             </div>
@@ -118,7 +119,7 @@ export default function Overview() {
 
           <ScanButtons scanning={scanning} scanned={scanned} steps={scan} junk={cleaner?.total_bytes ?? null} onScan={scanEverything} onReview={() => go("clean")} />
           <p className="mt-2 flex items-center justify-center gap-1.5 text-[11.5px] text-faint">
-            <Lock className="size-3" aria-hidden /> Everything runs locally on your Mac. Nothing is uploaded.
+            <Lock className="size-3" aria-hidden /> Everything runs locally on your {words.computer}. Nothing is uploaded.
           </p>
         </motion.div>
 
@@ -190,7 +191,7 @@ export default function Overview() {
           <div className="mb-3.5 flex items-start justify-between">
             <div>
               <h2 className="text-[18px] font-semibold tracking-[-0.01em]">Quick actions</h2>
-              <p className="text-[12.5px] text-muted">Common tasks to keep your Mac clean and fast.</p>
+              <p className="text-[12.5px] text-muted">Common tasks to keep your {words.computer} clean and fast.</p>
             </div>
             <button onClick={() => go("clean")} className="flex cursor-pointer items-center gap-0.5 text-[12.5px] font-medium text-accent-text hover:underline">
               View all tools <ChevronRight className="size-3.5" aria-hidden />
@@ -289,7 +290,7 @@ function ScanButtons({ scanning, scanned, steps, junk, onScan, onReview }: { sca
             {scanning ? <Loader2 className="size-5 animate-spin" aria-hidden /> : scanned ? <RotateCw className="size-[18px]" strokeWidth={2.5} aria-hidden /> : <Play className="ml-0.5 size-5 fill-current" aria-hidden />}
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[16px] font-semibold">{scanning ? "Scanning your Mac…" : scanned ? "Scan again" : "Scan everything"}</span>
+            <span className="block text-[16px] font-semibold">{scanning ? `Scanning your ${words.computer}…` : scanned ? "Scan again" : "Scan everything"}</span>
             <span className="block truncate text-[12px] text-white/85">{scanning ? "Caches, node_modules, large files and security" : "Find junk, large files, security issues and more"}</span>
           </span>
         </motion.button>

@@ -2,7 +2,6 @@
 //! commit identities (malware that commits "as you" or as someone else).
 
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use super::discover::Discovered;
 use super::iocs::Iocs;
@@ -23,7 +22,7 @@ const KNOWN_HOOK_TOOLS: &[&str] = &[
 ];
 
 fn git_global(env: &Env, key: &str) -> Option<String> {
-    let out = Command::new("git")
+    let out = crate::fsutil::command("git")
         .args(["config", "--global", "--get", key])
         .env("HOME", &env.home)
         .env("XDG_CONFIG_HOME", env.home.join(".config"))
@@ -185,11 +184,13 @@ pub fn scan(env: &Env, found: &Discovered, iocs: &Iocs) -> Vec<Finding> {
                 .path(&env.home.join(".git-credentials"))
                 .advice(if cfg!(target_os = "macos") {
                     "Use the Keychain instead: git config --global credential.helper osxkeychain"
+                } else if cfg!(windows) {
+                    "Use Git Credential Manager instead: git config --global credential.helper manager"
                 } else {
                     "Use an encrypted helper such as libsecret or Git Credential Manager."
                 }),
             );
-            if cfg!(target_os = "macos") {
+            if cfg!(any(target_os = "macos", windows)) {
                 if let Some(f) = out.last_mut() {
                     f.fix = Some(Fix::UseKeychainCredentials);
                 }
