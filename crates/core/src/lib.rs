@@ -12,3 +12,4 @@ pub mod system;
 
 pub use env::{Env, Os};
 pub use fsutil::Cancel;
+pub use sysinfo;

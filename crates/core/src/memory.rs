@@ -185,7 +185,13 @@ fn to_info(p: &Process, me: Pid, my_uid: Option<&sysinfo::Uid>, sys: &System) ->
 pub fn snapshot(sys: &System) -> MemorySnapshot {
     let me = sysinfo::get_current_pid().unwrap_or(Pid::from_u32(0));
     let my_uid = sys.process(me).and_then(|p| p.user_id()).cloned();
-    let procs: Vec<ProcInfo> = sys.processes().values().map(|p| to_info(p, me, my_uid.as_ref(), sys)).collect();
+    // On Linux, sysinfo also lists threads as tasks; count each process once.
+    let procs: Vec<ProcInfo> = sys
+        .processes()
+        .values()
+        .filter(|p| p.thread_kind().is_none())
+        .map(|p| to_info(p, me, my_uid.as_ref(), sys))
+        .collect();
 
     let mut groups: HashMap<String, AppGroup> = HashMap::new();
     for p in &procs {
