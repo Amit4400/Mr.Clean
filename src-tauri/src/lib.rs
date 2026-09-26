@@ -10,6 +10,7 @@ use mrclean_core::cleaner::{self, node_modules, CleanRequest, CleanerScan};
 use mrclean_core::fsutil::Progress;
 use mrclean_core::memory::{self, MemorySnapshot, QuitResult};
 use mrclean_core::safety::{DeleteMode, DeleteReport};
+use mrclean_core::security::protection::{self, Pane};
 use mrclean_core::security::{self, QuarantineEntry, SecurityReport};
 use mrclean_core::sysinfo::System;
 use mrclean_core::system::{self, DeviceInfo, MemoryInfo, SystemInfo};
@@ -148,8 +149,33 @@ fn has_full_disk_access() -> bool {
 
 #[tauri::command]
 fn open_full_disk_access_settings() -> Res<()> {
-    let url = "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles";
-    tauri_plugin_opener::open_url(url, None::<&str>).map_err(|e| e.to_string())
+    open_settings(Pane::FullDiskAccess)
+}
+
+/// Open one of the allowlisted System Settings pages (never an arbitrary URL).
+#[tauri::command]
+fn open_settings(pane: Pane) -> Res<()> {
+    tauri_plugin_opener::open_url(pane.url(), None::<&str>).map_err(|e| e.to_string())
+}
+
+/// FileVault, Firewall, Gatekeeper, SIP, updates and Remote Login. Read-only.
+#[tauri::command]
+async fn protection_checks() -> Res<Vec<protection::Check>> {
+    blocking(protection::checks).await
+}
+
+/// Apply the one-click fix of a finding from the last scan (user-confirmed).
+#[tauri::command]
+fn security_fix(state: State<'_, AppState>, finding_id: String) -> Res<String> {
+    let guard = state.security.lock().map_err(|e| e.to_string())?;
+    let report = guard.as_ref().ok_or("Run a scan first.")?;
+    let fix = report
+        .findings
+        .iter()
+        .find(|f| f.id == finding_id)
+        .and_then(|f| f.fix)
+        .ok_or("This finding has no automatic fix.")?;
+    security::apply_fix(&Env::detect(), fix)
 }
 
 #[tauri::command]
@@ -315,6 +341,9 @@ pub fn run() {
             folder_explain,
             has_full_disk_access,
             open_full_disk_access_settings,
+            open_settings,
+            protection_checks,
+            security_fix,
             cancel_scan,
             reveal,
             cleaner_scan,

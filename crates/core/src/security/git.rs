@@ -6,7 +6,7 @@ use std::process::Command;
 
 use super::discover::Discovered;
 use super::iocs::Iocs;
-use super::{patterns, read_small, Area, Finding, Severity};
+use super::{patterns, read_small, Area, Finding, Fix, Severity};
 use crate::env::Env;
 
 /// Hooks written by well-known tools. Still scanned for bad patterns, but not
@@ -146,7 +146,8 @@ pub fn scan(env: &Env, found: &Discovered, iocs: &Iocs) -> Vec<Finding> {
             Finding::new(Severity::Medium, Area::Git, "Global git hooks folder is set",
                 format!("Every repository on this machine runs the hooks in {}. Malware uses this to run on every commit or push.", dir.display()))
                 .path(&dir)
-                .advice("If you didn't set this, run: git config --global --unset core.hooksPath"),
+                .advice("If you didn't set this, run: git config --global --unset core.hooksPath")
+                .fixable(Fix::UnsetGlobalHooksPath),
         );
         for h in hook_files(&dir) {
             out.extend(check_hook(&h, "This global hook", false, iocs));
@@ -188,6 +189,11 @@ pub fn scan(env: &Env, found: &Discovered, iocs: &Iocs) -> Vec<Finding> {
                     "Use an encrypted helper such as libsecret or Git Credential Manager."
                 }),
             );
+            if cfg!(target_os = "macos") {
+                if let Some(f) = out.last_mut() {
+                    f.fix = Some(Fix::UseKeychainCredentials);
+                }
+            }
         }
     }
 

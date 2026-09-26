@@ -11,6 +11,7 @@ pub mod iocs;
 mod npm;
 pub mod patterns;
 mod persistence;
+pub mod protection;
 mod shell;
 
 use std::path::{Path, PathBuf};
@@ -55,6 +56,56 @@ pub struct Finding {
     pub evidence: Option<String>,
     pub advice: Option<String>,
     pub can_quarantine: bool,
+    /// A one-click fix the user can apply (after confirming).
+    pub fix: Option<Fix>,
+}
+
+/// Fixes the app can apply for the user, each a fixed `git` command.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Fix {
+    /// `git config --global --unset core.hooksPath`
+    UnsetGlobalHooksPath,
+    /// `git config --global credential.helper osxkeychain`
+    UseKeychainCredentials,
+}
+
+impl Fix {
+    pub fn git_args(self) -> &'static [&'static str] {
+        match self {
+            Fix::UnsetGlobalHooksPath => &["config", "--global", "--unset", "core.hooksPath"],
+            Fix::UseKeychainCredentials => &["config", "--global", "credential.helper", "osxkeychain"],
+        }
+    }
+
+    /// What the button does, for the confirm dialog.
+    pub fn describe(self) -> &'static str {
+        match self {
+            Fix::UnsetGlobalHooksPath => "Stop every repository from running the global hooks folder.",
+            Fix::UseKeychainCredentials => "Store git passwords in the macOS Keychain instead of a plain text file.",
+        }
+    }
+}
+
+/// Apply a fix the user confirmed. Runs `git` with a fixed argument list
+/// against the user's global config.
+pub fn apply_fix(env: &Env, fix: Fix) -> Result<String, String> {
+    let out = std::process::Command::new("git")
+        .args(fix.git_args())
+        .env("HOME", &env.home)
+        .env("XDG_CONFIG_HOME", env.home.join(".config"))
+        .output()
+        .map_err(|e| format!("Couldn't run git: {e}"))?;
+    if out.status.success() {
+        Ok(match fix {
+            Fix::UnsetGlobalHooksPath => "Global hooks folder removed from your git settings.".into(),
+            Fix::UseKeychainCredentials => {
+                "Git now uses the Keychain. Delete ~/.git-credentials after your next successful push.".into()
+            }
+        })
+    } else {
+        Err(String::from_utf8_lossy(&out.stderr).trim().to_string())
+    }
 }
 
 impl Finding {
@@ -70,7 +121,12 @@ impl Finding {
             evidence: None,
             advice: None,
             can_quarantine: false,
+            fix: None,
         }
+    }
+    pub fn fixable(mut self, fix: Fix) -> Self {
+        self.fix = Some(fix);
+        self
     }
     pub fn path(mut self, p: &Path) -> Self {
         self.path = Some(p.display().to_string());
@@ -228,6 +284,42 @@ pub struct QuarantineEntry {
     /// Unix permission bits before quarantine, restored on the way back.
     #[serde(default)]
     pub mode: Option<u32>,
+    /// A startup item that was also stopped right away (not just at next login).
+    #[serde(default)]
+    pub stopped: bool,
+}
+
+/// `Label` of a launchd plist.
+fn launchd_label(plist_path: &Path) -> Option<String> {
+    plist::Value::from_file(plist_path)
+        .ok()?
+        .as_dictionary()?
+        .get("Label")?
+        .as_string()
+        .map(String::from)
+}
+
+/// Stop a quarantined Launch Agent now, so it doesn't keep running until logout.
+#[cfg(unix)]
+fn stop_launch_agent(env: &Env, original: &Path, stored: &Path) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    let is_agent = original.parent().is_some_and(|d| d.ends_with("Library/LaunchAgents"))
+        && original.extension().is_some_and(|x| x == "plist");
+    if !is_agent || env.os != crate::env::Os::Mac || !cfg!(target_os = "macos") {
+        return false;
+    }
+    let (Some(label), Ok(meta)) = (launchd_label(stored), std::fs::metadata(&env.home)) else {
+        return false;
+    };
+    std::process::Command::new("/bin/launchctl")
+        .args(["bootout", &format!("gui/{}/{label}", meta.uid())])
+        .status()
+        .is_ok_and(|s| s.success())
+}
+
+#[cfg(not(unix))]
+fn stop_launch_agent(_: &Env, _: &Path, _: &Path) -> bool {
+    false
 }
 
 fn quarantine_dir(env: &Env) -> PathBuf {
@@ -288,6 +380,7 @@ pub fn quarantine(env: &Env, path: &Path, reason: &str) -> Result<QuarantineEntr
         reason: reason.to_string(),
         at,
         mode,
+        stopped: stop_launch_agent(env, &resolved, &stored),
     };
     let mut all = quarantined(env);
     all.push(entry.clone());

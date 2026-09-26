@@ -194,6 +194,20 @@ export interface Finding {
   evidence: string | null;
   advice: string | null;
   can_quarantine: boolean;
+  fix: Fix | null;
+}
+
+export type Fix = "unset_global_hooks_path" | "use_keychain_credentials";
+
+export type Pane = "full_disk_access" | "file_vault" | "firewall" | "privacy_security" | "software_update" | "sharing";
+
+export interface ProtectionCheck {
+  id: string;
+  title: string;
+  about: string;
+  state: "pass" | "fail" | "unknown";
+  pane: Pane | null;
+  how: string | null;
 }
 
 export interface SecurityReport {
@@ -212,6 +226,7 @@ export interface QuarantineEntry {
   reason: string;
   at: number;
   mode: number | null;
+  stopped: boolean;
 }
 
 export interface ScanProgress {

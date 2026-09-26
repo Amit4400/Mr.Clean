@@ -14,6 +14,8 @@ import type {
   MemorySnapshot,
   Node,
   NodeModulesHit,
+  Pane,
+  ProtectionCheck,
   QuarantineEntry,
   QuitResult,
   ScanProgress,
@@ -39,6 +41,9 @@ export const api = {
   appIcon: (q: { bundle?: string | null; name?: string }) =>
     call<string | null>("app_icon", { bundle: q.bundle ?? null, name: q.name ?? null }),
   homeDir: () => call<string>("home_dir"),
+  protectionChecks: () => call<ProtectionCheck[]>("protection_checks"),
+  openSettings: (pane: Pane) => call<void>("open_settings", { pane }),
+  securityFix: (findingId: string) => call<string>("security_fix", { findingId }),
   /** Plain-English "what is this folder?" (null when unknown). */
   folderExplain: (path: string) => call<Explanation | null>("folder_explain", { path }),
   hasFullDiskAccess: () => call<boolean>("has_full_disk_access"),
