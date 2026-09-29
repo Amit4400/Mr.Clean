@@ -3,6 +3,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 import { mock } from "./mock";
 import type {
+  AppIdentity,
   CleanerScan,
   DeviceInfo,
   Explanation,
@@ -47,6 +48,7 @@ export const api = {
   /** Plain-English "what is this folder?" (null when unknown). */
   folderExplain: (path: string) => call<Explanation | null>("folder_explain", { path }),
   hasFullDiskAccess: () => call<boolean>("has_full_disk_access"),
+  appIdentity: () => call<AppIdentity>("app_identity"),
   cancelScan: () => call<void>("cancel_scan"),
   reveal: (path: string) => call<void>("reveal", { path }),
 

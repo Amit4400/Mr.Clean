@@ -186,6 +186,8 @@ export async function mock<T>(cmd: string, args?: Record<string, unknown>): Prom
     case "home_dir": return r(HOME, 0);
     // Browser preview has no TCC — treat as already granted so we don't nag.
     case "has_full_disk_access": return r(true, 0);
+    case "app_identity":
+      return r({ bundle_id: "com.softradix.mrclean", path: "/Applications/Mr.Clean.app" }, 0);
     case "cleaner_scan": return r(cleanerScan(), 1200);
     case "cleaner_clean": {
       const reqs = a.requests as { rule_id: string; paths: string[] | null }[];

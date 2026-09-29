@@ -1,4 +1,4 @@
-import { BrushCleaning, ChevronRight, CircleCheck, ClipboardList, Code, Cpu, FileText, FolderClosed, Loader2, Lock, Package, Play, RotateCw, ShieldCheck, type LucideIcon } from "lucide-react";
+import { BrushCleaning, ChevronRight, CircleCheck, ClipboardList, Code, Cpu, FileText, FolderClosed, HardDrive, Loader2, Lock, Package, Play, RotateCw, ShieldCheck, type LucideIcon } from "lucide-react";
 import { motion, type Variants } from "motion/react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
@@ -6,11 +6,12 @@ import { DeviceArt } from "../components/DeviceArt";
 import { StorageOrb } from "../components/StorageOrb";
 import { AnimatedNumber, Card, SoftTile as Tile, cx } from "../components/ui";
 import { api } from "../lib/api";
+import { loadFdaDismissed, showOverviewFdaHint } from "../lib/fda";
 import { bytes } from "../lib/format";
 import { greeting, health } from "../lib/health";
+import { platform, words } from "../lib/platform";
 import { useStore, type ScanStep } from "../lib/store";
 import type { SystemInfo } from "../lib/types";
-import { words } from "../lib/platform";
 
 const BIG_FILE = 500e6;
 
@@ -29,6 +30,7 @@ const press = { type: "spring", stiffness: 500, damping: 32 } as const;
 export default function Overview() {
   const { go, device, cleaner, security, files, nodeModules, memSnap, mem, scan, scanning, scanEverything } = useStore();
   const [info, setInfo] = useState<SystemInfo | null>(null);
+  const [fdaHint, setFdaHint] = useState(false);
 
   // Size the orb to the space left between the four stat bubbles.
   const stage = useRef<HTMLDivElement>(null);
@@ -44,6 +46,26 @@ export default function Overview() {
   useEffect(() => {
     api.systemInfo().then(setInfo).catch(() => {});
   }, [cleaner]);
+
+  useEffect(() => {
+    if (platform !== "mac") return;
+    const check = () => {
+      api
+        .hasFullDiskAccess()
+        .then((ok) => setFdaHint(showOverviewFdaHint(ok, loadFdaDismissed())))
+        .catch(() => setFdaHint(false));
+    };
+    check();
+    const onVis = () => {
+      if (!document.hidden) check();
+    };
+    window.addEventListener("focus", check);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("focus", check);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, []);
 
   const disk = info?.disk ?? null;
   const used = disk ? disk.total_bytes - disk.free_bytes : null;
@@ -121,6 +143,15 @@ export default function Overview() {
           <p className="mt-2 flex items-center justify-center gap-1.5 text-[11.5px] text-faint">
             <Lock className="size-3" aria-hidden /> Everything runs locally on your {words.computer}. Nothing is uploaded.
           </p>
+          {fdaHint && (
+            <p className="mt-2 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 text-[11.5px] text-muted">
+              <HardDrive className="size-3 shrink-0" aria-hidden />
+              Some folders are hidden without Full Disk Access.
+              <button type="button" onClick={() => go("settings")} className="cursor-pointer font-medium text-accent-text hover:underline">
+                Open Settings
+              </button>
+            </p>
+          )}
         </motion.div>
 
         {/* Right: what the last scan found. */}

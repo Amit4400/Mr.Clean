@@ -243,3 +243,9 @@ export interface Explanation {
   text: string;
   advice: Advice;
 }
+
+/** Running binary — helps pick the right Full Disk Access toggle. */
+export interface AppIdentity {
+  bundle_id: string;
+  path: string;
+}
