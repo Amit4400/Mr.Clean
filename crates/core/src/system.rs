@@ -1,9 +1,48 @@
 //! Machine overview for the dashboard.
 
+use std::path::Path;
 use std::process::Command;
 
 use serde::Serialize;
 use sysinfo::{Disks, System};
+
+/// Folders macOS hides without Full Disk Access. Never probe the TCC database —
+/// SIP keeps it unlistable even when FDA is granted, which falsely looks like
+/// "not allowed" and makes the UI ask again every launch. Skip folders that stay
+/// readable without FDA (e.g. Reminders) — those would look "granted" forever.
+const FDA_PROBES: &[&str] = &[
+    "Library/Safari",
+    "Library/Mail",
+    "Library/Cookies",
+    "Library/Suggestions",
+    "Library/Containers/com.apple.stocks",
+];
+
+/// True when this process can see macOS TCC-protected folders under `home`.
+/// Non-macOS always returns true (there is no Full Disk Access concept).
+pub fn has_full_disk_access(home: &Path) -> bool {
+    if !cfg!(target_os = "macos") {
+        return true;
+    }
+    fda_from_probes(home, |p| p.exists(), |p| std::fs::read_dir(p).is_ok())
+}
+
+/// Granted if any existing sentinel is listable. If none exist, treat as
+/// granted so we never nag forever on an empty fake home.
+fn fda_from_probes(home: &Path, exists: impl Fn(&Path) -> bool, can_list: impl Fn(&Path) -> bool) -> bool {
+    let mut saw = false;
+    for rel in FDA_PROBES {
+        let p = home.join(rel);
+        if !exists(&p) {
+            continue;
+        }
+        saw = true;
+        if can_list(&p) {
+            return true;
+        }
+    }
+    !saw
+}
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SystemInfo {
@@ -386,6 +425,7 @@ pub fn device(sys: &System) -> DeviceInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::Path;
 
     #[test]
     fn hardware_json_and_names() {
@@ -457,5 +497,37 @@ mod tests {
         );
         assert_eq!(windows_label("Windows 10 Pro", Some(22631)), "Windows 11 Pro");
         assert_eq!(windows_label("Windows 10 Pro", Some(19045)), "Windows 10 Pro");
+    }
+
+    #[test]
+    fn fda_granted_when_any_sentinel_lists() {
+        let home = Path::new("/fake/home");
+        let exists = |p: &Path| p.ends_with("Library/Safari") || p.ends_with("Library/Mail");
+        // Only Mail is listable — still counts as granted (don't require every probe).
+        assert!(fda_from_probes(home, exists, |p| p.ends_with("Library/Mail")));
+    }
+
+    #[test]
+    fn fda_denied_when_every_existing_sentinel_fails() {
+        let home = Path::new("/fake/home");
+        let exists = |p: &Path| p.ends_with("Library/Safari") || p.ends_with("Library/Mail");
+        assert!(!fda_from_probes(home, exists, |_| false));
+    }
+
+    #[test]
+    fn fda_granted_when_no_sentinels_exist() {
+        let home = Path::new("/fake/home");
+        assert!(fda_from_probes(home, |_| false, |_| false));
+    }
+
+    #[test]
+    fn fda_ignores_missing_sentinels_and_uses_readable_one() {
+        let home = Path::new("/fake/home");
+        // Safari missing, Mail present and readable.
+        assert!(fda_from_probes(
+            home,
+            |p| p.ends_with("Library/Mail"),
+            |p| p.ends_with("Library/Mail"),
+        ));
     }
 }

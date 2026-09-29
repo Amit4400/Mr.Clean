@@ -23,8 +23,22 @@ export default function Settings() {
   const { deleteMode, setDeleteMode } = useStore();
   const [fda, setFda] = useState<boolean | null>(null);
 
+  // Only show the grant CTA when the check returns false. Re-check on focus so
+  // returning from System Settings updates without another nag if already allowed.
   useEffect(() => {
-    api.hasFullDiskAccess().then(setFda).catch(() => setFda(null));
+    const check = () => {
+      api.hasFullDiskAccess().then(setFda).catch(() => setFda(null));
+    };
+    check();
+    const onVis = () => {
+      if (!document.hidden) check();
+    };
+    window.addEventListener("focus", check);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("focus", check);
+      document.removeEventListener("visibilitychange", onVis);
+    };
   }, []);
 
   const option = (mode: DeleteMode, title: string, text: string) => (
@@ -58,21 +72,23 @@ export default function Settings() {
 
         {platform === "mac" && (
           <Section icon={HardDrive} color="var(--c-info)" title="Full Disk Access">
-            {fda ? (
-            <p className="flex items-center gap-2 text-[13px] text-safe-text">
-              <CircleCheck className="size-4" /> Granted. Mr.Clean can see every cache folder.
-            </p>
-          ) : (
-            <>
-              <p className="text-[13px] text-muted">
-                macOS hides some folders (Trash, Mail, parts of ~/Library) until you allow it. Without it, scans still work but may miss some space. Open the setting, turn on
-                <b className="text-ink"> Mr.Clean</b>, then restart the app.
+            {fda === true && (
+              <p className="flex items-center gap-2 text-[13px] text-safe-text">
+                <CircleCheck className="size-4" /> Granted. Mr.Clean can see every cache folder.
               </p>
-              <Button className="mt-3" onClick={() => openFullDiskAccessSettings()} disabled={!inTauri}>
-                Open Privacy settings
-              </Button>
-            </>
-          )}
+            )}
+            {fda === false && (
+              <>
+                <p className="text-[13px] text-muted">
+                  macOS hides some folders (Trash, Mail, parts of ~/Library) until you allow it. Without it, scans still work but may miss some space. Open the setting, turn on
+                  <b className="text-ink"> Mr.Clean</b>, then restart the app.
+                </p>
+                <Button className="mt-3" onClick={() => openFullDiskAccessSettings()} disabled={!inTauri}>
+                  Open Privacy settings
+                </Button>
+              </>
+            )}
+            {fda === null && <p className="text-[13px] text-muted">Checking…</p>}
           </Section>
         )}
 

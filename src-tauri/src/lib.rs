@@ -132,19 +132,7 @@ fn home_dir() -> String {
 /// macOS hides parts of ~/Library until the app has Full Disk Access.
 #[tauri::command]
 fn has_full_disk_access() -> bool {
-    if !cfg!(target_os = "macos") {
-        return true;
-    }
-    let home = Env::detect().home;
-    [
-        "Library/Safari",
-        "Library/Mail",
-        "Library/Application Support/com.apple.TCC",
-    ]
-    .iter()
-    .map(|p| home.join(p))
-    .filter(|p| p.exists())
-    .all(|p| std::fs::read_dir(p).is_ok())
+    system::has_full_disk_access(&Env::detect().home)
 }
 
 #[tauri::command]
