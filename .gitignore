@@ -2,7 +2,10 @@ node_modules/
 dist/
 target/
 *.log
+temp_auto_push.bat
 .DS_Store
 src-tauri/gen/schemas/
 test-results/
 playwright-report/
+.gitignore
+branch_structure.json
