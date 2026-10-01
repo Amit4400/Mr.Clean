@@ -10,12 +10,13 @@ use sysinfo::{Disks, System};
 /// SIP keeps it unlistable even when FDA is granted, which falsely looks like
 /// "not allowed" and makes the UI ask again every launch. Skip folders that stay
 /// readable without FDA (e.g. Reminders) — those would look "granted" forever.
+/// Also skip other apps' containers: reading one can pop up "would like to access
+/// data from other apps", and this check re-runs on every window focus.
 const FDA_PROBES: &[&str] = &[
     "Library/Safari",
     "Library/Mail",
     "Library/Cookies",
     "Library/Suggestions",
-    "Library/Containers/com.apple.stocks",
 ];
 
 /// True when this process can see macOS TCC-protected folders under `home`.
